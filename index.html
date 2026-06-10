@@ -6,8 +6,8 @@
 <title>KAWASAN — F12</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#000; overflow:hidden; }
-canvas { display:block; width:100vw; height:100vh; }
+html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+canvas { position:fixed; top:0; left:0; width:100%; height:100%; display:block; }
 #hud {
   position:fixed; top:0; left:0; right:0;
   padding:14px 18px;
@@ -30,29 +30,48 @@ canvas { display:block; width:100vw; height:100vh; }
 }
 #ui {
   position:fixed; bottom:0; left:0; right:0;
-  padding:12px 0 22px 0;
+  padding:12px 0 max(22px, env(safe-area-inset-bottom)) 0;
   display:flex; flex-direction:column; align-items:center;
   pointer-events:none; z-index:10;
 }
 .dpad {
   display:grid;
-  grid-template-columns:58px 58px 58px;
-  grid-template-rows:58px 58px;
-  gap:5px; pointer-events:all;
+  grid-template-columns:64px 64px 64px;
+  grid-template-rows:64px 64px;
+  gap:6px; pointer-events:all;
 }
 .btn {
-  background:rgba(138,170,128,0.07);
-  border:1px solid rgba(138,170,128,0.16);
-  border-radius:4px; color:rgba(138,170,128,0.45);
-  font-size:20px; display:flex; align-items:center; justify-content:center;
+  background:rgba(138,170,128,0.09);
+  border:1px solid rgba(138,170,128,0.20);
+  border-radius:6px; color:rgba(138,170,128,0.5);
+  font-size:22px; display:flex; align-items:center; justify-content:center;
   cursor:pointer; user-select:none;
   -webkit-tap-highlight-color:transparent; touch-action:none;
+  transition: background 0.1s;
 }
-.btn.active { background:rgba(138,170,128,0.2); }
+.btn.active { background:rgba(138,170,128,0.25); color:rgba(138,170,128,0.9); }
 .btn-empty { background:transparent; border:none; pointer-events:none; }
+#loading {
+  position:fixed; inset:0; background:#000;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  z-index:100; pointer-events:none;
+}
+#loading span {
+  color:#8aaa80; font-family:monospace; font-size:11px;
+  letter-spacing:6px; opacity:0.5; animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:0.2} 50%{opacity:0.6} }
+#error {
+  position:fixed; inset:0; background:#000;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  z-index:200;
+}
+#error p { color:#8aaa80; font-family:monospace; font-size:10px; letter-spacing:3px; text-align:center; line-height:2; opacity:0.6; }
 </style>
 </head>
 <body>
+<div id="loading"><span>KAWASAN</span></div>
+<div id="error"><p>WEBGL TIDAK DISOKONG<br>CUBA PELAYAR LAIN</p></div>
 <div id="hud">
   <div id="hud-title">KAWASAN</div>
   <div id="hud-coords">—</div>
@@ -72,13 +91,35 @@ canvas { display:block; width:100vw; height:100vh; }
 </div>
 
 <script>
-const canvas=document.getElementById('c');
-const gl=canvas.getContext('webgl')||canvas.getContext('experimental-webgl');
-function resize(){canvas.width=innerWidth;canvas.height=innerHeight;gl.viewport(0,0,canvas.width,canvas.height);}
-window.addEventListener('resize',resize);resize();
+// ── CANVAS + WEBGL INIT ───────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const loadEl = document.getElementById('loading');
+const errEl  = document.getElementById('error');
+
+let gl = null;
+try {
+  gl = canvas.getContext('webgl', {antialias:false, alpha:false})
+    || canvas.getContext('experimental-webgl', {antialias:false, alpha:false});
+} catch(e) {}
+
+if (!gl) {
+  loadEl.style.display = 'none';
+  errEl.style.display = 'flex';
+  throw new Error('No WebGL');
+}
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width  = Math.floor(window.innerWidth  * dpr);
+  canvas.height = Math.floor(window.innerHeight * dpr);
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
 
 // ── SHADERS ───────────────────────────────────────────────────────────────────
 const VS=`
+precision mediump float;
 attribute vec3 aPos;
 attribute vec2 aUV;
 uniform mat4 uMVP;
@@ -90,7 +131,6 @@ varying vec3 vWorld;
 void main(){
   vec3 p=aPos;
   if(uWave==1){
-    // gentle tree/leaf sway
     p.x+=sin(uTime*1.2+aPos.z*0.5+aPos.y*0.3)*0.12*aPos.y*0.1;
     p.z+=cos(uTime*0.9+aPos.x*0.4)*0.08*aPos.y*0.1;
   }
@@ -112,11 +152,8 @@ uniform float uFlicker;
 uniform float uAlpha;
 uniform int uType;
 uniform float uTime;
-// 0=concrete 1=sign 2=sky 3=road 4=tile 5=ground
-// 6=window 7=leaf 8=trunk 9=mist 10=rain 11=ghost
 
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5);}
-float hash3(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5);}
 float noise(vec2 p){
   vec2 i=floor(p); vec2 f=fract(p);
   float a=hash(i),b=hash(i+vec2(1,0)),c=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
@@ -129,93 +166,88 @@ void main(){
   vec2 uv=vUV*uTile;
   vec3 col=uColor;
   float fog=pow(vFog,1.1);
-  vec3 fogCol=vec3(0.04,0.07,0.04); // green-grey mist
+  vec3 fogCol=vec3(0.04,0.07,0.04);
   float alpha=uAlpha;
 
-  if(uType==0){ // concrete
+  if(uType==0){
     float n=hash(floor(uv));
     float crack=hash(floor(uv*2.3)+vec2(7.1,3.3));
     col=uColor*(0.8+n*0.1-crack*0.05);
     col+=grid(uv)*0.07*uColor;
     float stain=hash(vec2(floor(uv.x),floor(uv.y*0.4)));
     col*=0.9+stain*0.14;
-    // moss patches on lower walls
     float mossy=smoothstep(0.0,2.0,vWorld.y);
     float moss=noise(vWorld.xz*0.8+vec2(3.1,1.4));
     col=mix(col*vec3(0.7,0.9,0.6),col,mossy*0.6+0.4);
     col=mix(col,col*vec3(0.6,0.85,0.5),moss*(1.0-mossy)*0.4);
   }
-  else if(uType==1){ // sign
+  else if(uType==1){
     float brd=step(0.06,vUV.x)*step(vUV.x,0.94)*step(0.08,vUV.y)*step(vUV.y,0.92);
     col=mix(uColor*1.4,uColor,brd);
     if(vUV.y>0.55&&vUV.y<0.70){float t=step(0.0,sin(vUV.x*30.0))*step(0.0,sin(vUV.x*7.0));col=mix(col,uColor*2.4,t*0.8);}
     if(vUV.y>0.30&&vUV.y<0.45){float t=step(0.0,sin(vUV.x*20.0+1.2))*step(0.0,sin(vUV.x*5.0));col=mix(col,uColor*2.0,t*0.65);}
   }
-  else if(uType==2){ // sky — overcast night
+  else if(uType==2){
     float cloud=noise(uv*0.3+vec2(uTime*0.01,0.0));
     col=mix(uColor,uColor*1.4,cloud*0.3);
     float star=step(0.994,hash(floor(uv*30.0)));
     col+=vec3(star*0.5)*(1.0-cloud*0.8);
   }
-  else if(uType==3){ // road
+  else if(uType==3){
     float n=hash(floor(uv*3.0));
     col=uColor*(0.85+n*0.1);
     float dsh=step(0.46,vUV.x)*step(vUV.x,0.54);
     float dlng=step(0.0,sin(vUV.y*uTile*3.14));
     col=mix(col,vec3(0.6,0.6,0.55),dsh*dlng*0.5);
-    // wet sheen
     float wet=noise(uv*2.0+vec2(0.0,uTime*0.1))*0.15;
     col+=vec3(wet*0.3,wet*0.4,wet*0.3);
   }
-  else if(uType==4){ // floor tile
+  else if(uType==4){
     float n=hash(floor(uv));
     col=uColor*(0.82+n*0.1);
     col+=grid(uv)*0.09*uColor;
   }
-  else if(uType==5){ // ground / mud
+  else if(uType==5){
     float n=noise(uv*1.5);
     float b=hash(floor(uv*4.0));
     col=uColor*(0.7+n*0.2+b*0.06);
-    // puddles
     float puddle=smoothstep(0.55,0.75,noise(uv*0.8+vec2(1.3,2.1)));
     col=mix(col,vec3(0.08,0.12,0.08)*1.2,puddle*0.5);
   }
-  else if(uType==6){ // window
+  else if(uType==6){
     float frame=1.0-step(0.1,vUV.x)*step(vUV.x,0.9)*step(0.08,vUV.y)*step(vUV.y,0.92);
     col=mix(uColor*0.12,uColor*0.35,frame);
     float glow=hash(floor(vUV*0.5+vec2(1.3,2.7)));
     if(glow>0.72) col+=vec3(0.02,0.05,0.02)*step(0.1,vUV.x)*step(vUV.x,0.9);
   }
-  else if(uType==7){ // leaves — jungle canopy
+  else if(uType==7){
     float n=noise(uv*3.0+vec2(uTime*0.2,0.0));
-    float hole=step(0.42,n); // transparency via discard-like darkening
+    float hole=step(0.42,n);
     col=uColor*(0.7+n*0.4);
-    if(hole<0.5) alpha=0.0; // discard dark patches = see-through gaps
+    if(hole<0.5) alpha=0.0;
     else alpha=uAlpha*(0.6+n*0.4);
   }
-  else if(uType==8){ // trunk / branch
+  else if(uType==8){
     float n=hash(floor(uv*4.0));
     col=uColor*(0.75+n*0.15);
-    // bark lines
     float bark=step(0.0,sin(vUV.y*uTile*6.28*2.0))*0.1;
     col*=1.0-bark*0.2;
   }
-  else if(uType==9){ // mist / fog plane
+  else if(uType==9){
     float n=noise(uv*0.5+vec2(uTime*0.05,uTime*0.02));
     float n2=noise(uv*1.2-vec2(uTime*0.03,0.0));
     float density=(n*0.6+n2*0.4);
     alpha=uAlpha*density*0.7*(1.0-vFog*0.5);
     col=uColor*(0.8+density*0.3);
   }
-  else if(uType==10){ // rain streak
+  else if(uType==10){
     float streak=step(0.85,hash(floor(uv*vec2(40.0,8.0))+vec2(floor(uTime*12.0),0.0)));
     alpha=streak*0.25*(1.0-vFog*0.8);
     col=vec3(0.6,0.7,0.65);
   }
-  else if(uType==11){ // ghost / white mist figure
+  else if(uType==11){
     float cx=abs(vUV.x-0.5)*2.0;
     float cy=vUV.y;
-    // body silhouette — head + torso
     float head=smoothstep(0.25,0.0,length(vec2(cx,cy-0.82)*vec2(1.0,1.4)));
     float body=smoothstep(0.5,0.0,length(vec2(cx*0.7,(cy-0.38)*0.6)));
     float shape=clamp(head+body,0.0,1.0);
@@ -226,16 +258,40 @@ void main(){
   }
 
   col*=uFlicker;
-  // outdoor gets greener fog, indoor gets darker
   col=mix(col,fogCol,fog*0.85);
   gl_FragColor=vec4(col,alpha);
 }`;
 
-function mkShader(t,s){const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);return sh;}
-const prog=gl.createProgram();
-gl.attachShader(prog,mkShader(gl.VERTEX_SHADER,VS));
-gl.attachShader(prog,mkShader(gl.FRAGMENT_SHADER,FS));
-gl.linkProgram(prog);gl.useProgram(prog);
+function mkShader(t, s) {
+  const sh = gl.createShader(t);
+  gl.shaderSource(sh, s);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    console.error('Shader error:', gl.getShaderInfoLog(sh));
+    return null;
+  }
+  return sh;
+}
+
+const vs = mkShader(gl.VERTEX_SHADER, VS);
+const fs = mkShader(gl.FRAGMENT_SHADER, FS);
+if (!vs || !fs) {
+  loadEl.style.display = 'none';
+  errEl.style.display = 'flex';
+  throw new Error('Shader compile failed');
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, vs);
+gl.attachShader(prog, fs);
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+  console.error('Link error:', gl.getProgramInfoLog(prog));
+  loadEl.style.display = 'none';
+  errEl.style.display = 'flex';
+  throw new Error('Program link failed');
+}
+gl.useProgram(prog);
 
 const LOC={
   aPos:gl.getAttribLocation(prog,'aPos'),
@@ -331,61 +387,38 @@ function ppr(bx,bz,bw,bh,bd,face){
   }
 }
 
-// ── JUNGLE ────────────────────────────────────────────────────────────────────
 function tree(x,z,h,spread){
-  const th=h*.35;
-  // trunk
-  const tw=0.22;
+  const th=h*.35,tw=0.22;
   wW(z-tw,z+tw,x-tw,0,th,C.trunk,3);wE(z-tw,z+tw,x+tw,0,th,C.trunk,3);
   wN(x-tw,x+tw,z-tw,0,th,C.trunk,3);wS(x-tw,x+tw,z+tw,0,th,C.trunk,3);
-  // canopy layers — billboard quads crossing
   const lc=[C.leafDk,C.leafMd,C.leafLt];
   for(let l=0;l<3;l++){
-    const ly=th+l*(h-th)/3;
-    const ls=spread*(1.0-l*0.2);
-    const col=lc[l];
-    // X billboard
+    const ly=th+l*(h-th)/3,ls=spread*(1.0-l*0.2),col=lc[l];
     mkQ(x-ls,ly,z,x+ls,ly,z,x+ls,ly+ls*1.4,z,x-ls,ly+ls*1.4,z,col,2,7,0,0.92,1);
-    // Z billboard
     mkQ(x,ly,z-ls,x,ly,z+ls,x,ly+ls*1.4,z+ls,x,ly+ls*1.4,z-ls,col,2,7,0,0.92,1);
-    // diagonal
     mkQ(x-ls*.7,ly,z-ls*.7,x+ls*.7,ly,z+ls*.7,x+ls*.7,ly+ls*1.2,z+ls*.7,x-ls*.7,ly+ls*1.2,z-ls*.7,col,2,7,0,0.88,1);
   }
 }
 
 function bush(x,z,h){
-  const col=C.leafDk;
-  const s=h;
+  const col=C.leafDk,s=h;
   mkQ(x-s,0,z,x+s,0,z,x+s,h*1.5,z,x-s,h*1.5,z,col,1,7,0,0.9,1);
   mkQ(x,0,z-s,x,0,z+s,x,h*1.5,z+s,x,h*1.5,z-s,col,1,7,0,0.9,1);
 }
 
-function groundVines(x0,z0,x1,z1){
-  fl(x0,z0,x1,z1,0.02,C.leafDk,4,7);
-}
-
-// Mist plane — large horizontal quad at ground level
-function mistPlane(x0,z0,x1,z1,y){
-  mkQ(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1,C.mist,3,9,0,0.55);
-}
-
-// Rain — vertical streaks as billboard planes
+function groundVines(x0,z0,x1,z1){fl(x0,z0,x1,z1,0.02,C.leafDk,4,7);}
+function mistPlane(x0,z0,x1,z1,y){mkQ(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1,C.mist,3,9,0,0.55);}
 function rainLayer(x,z,w,d,y0,y1){
   mkQ(x,y1,z,x+w,y1,z,x+w,y0,z,x,y0,z,C.mist,6,10,0,0.3);
   mkQ(x,y1,z+d*.5,x+w,y1,z+d*.5,x+w,y0,z+d*.5,x,y0,z+d*.5,C.mist,6,10,0,0.3);
 }
 
 // ── GHOST ─────────────────────────────────────────────────────────────────────
-// Ghost is dynamic — rendered each frame at computed position
-let ghostMesh=null;
 function makeGhost(){
-  const d=[];
-  const v=[0,0,0,1,0,0,1,2,0,1,2,0,0,2,0,0,0,0];
-  const u=[0,0,1,0,1,1,1,1,0,1,0,0];
-  for(let i=0;i<6;i++)d.push(v[i*3],v[i*3+1],v[i*3+2],u[i*2],u[i*2+1]);
+  const d=new Float32Array(30);
   const buf=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(d),gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER,d,gl.DYNAMIC_DRAW);
   return buf;
 }
 const ghostBuf=makeGhost();
@@ -397,59 +430,43 @@ wN(-S,S,-S,0,SH,C.sky,20);wS(-S,S,S,0,SH,C.sky,20);
 wW(-S,S,-S,0,SH,C.sky,20);wE(-S,S,S,0,SH,C.sky,20);
 
 // ── WORLD ─────────────────────────────────────────────────────────────────────
-// [A] LOBBY
 room(4,0,14,20,IH);
 pillar(5.5,2);pillar(11,2);pillar(5.5,13);pillar(11,13);
 lit(9,2,IH,0);lit(9,10,IH,0.7);lit(9,17,IH,0);
 sign(4,2.2,3,2,.9,'e',C.sGreen);sign(13.5,2.2,8,2,.9,'w',C.sBlue);
 
-// [B] OUTDOOR STREET — JALAN PPR
 fl(-18,20,38,48,0,C.road,14,3);
 fl(-18,20,-14,48,0,C.mud,10,5);
 fl(24,20,38,48,0,C.mud,10,5);
-
-// PPR blocks
 ppr(-18,20,16,36,28,'e');ppr(24,20,16,36,28,'w');
 fl(-18,20,0,48,36,C.concDk,10);fl(24,20,40,48,36,C.concDk,10);
 sign(-18,14,24,4,1.4,'e',C.sBlue);sign(-18,8,36,6,1.2,'e',C.sGreen);
 sign(38,12,27,4,1.4,'w',C.sYellow);sign(38,6,40,3,1.0,'w',C.sBlue);
 
-// JUNGLE — overgrowth between PPR blocks and street
-// Left side jungle
 tree(-12,22,7,2.5);tree(-10,28,9,3.0);tree(-14,34,8,2.8);
 tree(-8,38,6,2.2);tree(-13,43,10,3.2);tree(-9,31,5,1.8);
 bush(-11,25,1.2);bush(-7,30,0.9);bush(-14,37,1.4);bush(-10,42,1.1);
 bush(-12,27,0.8);bush(-8,33,1.0);
 groundVines(-16,21,-6,47);
-// Right side jungle
 tree(27,23,8,2.6);tree(30,29,7,2.4);tree(28,36,9,3.1);
 tree(32,41,6,2.0);tree(26,44,10,3.3);
 bush(28,26,1.1);bush(31,32,0.9);bush(27,39,1.3);bush(33,43,1.0);
 groundVines(24,21,37,47);
 
-// Mist layers outdoor
-mistPlane(-18,20,38,48,0.3);
-mistPlane(-18,20,38,48,1.2);
-// Rain
-rainLayer(-10,22,28,28,0,6);
-rainLayer(-10,30,28,18,0,6);
-rainLayer(-10,38,28,10,0,6);
+mistPlane(-18,20,38,48,0.3);mistPlane(-18,20,38,48,1.2);
+rainLayer(-10,22,28,28,0,6);rainLayer(-10,30,28,18,0,6);rainLayer(-10,38,28,10,0,6);
 
-// [C] COVERED WALKWAY
 room(2,48,16,68,IH);
 for(let pz=50;pz<67;pz+=4){pillar(2.5,pz);pillar(14,pz);}
 lit(9,50,IH,0);lit(9,55,IH,.5);lit(9,60,IH,0);lit(9,65,IH,.8);
 sign(2,2,50,2.5,1,'e',C.sYellow);sign(2,2,58,2.5,1,'e',C.sGreen);
 sign(15.5,2,54,2,.8,'w',C.sBlue);sign(15.5,2,63,2,.8,'w',C.sGreen);
-// Vines crawling inside on walls
 mkQ(2.05,.5,52,2.05,2.8,52,2.05,2.8,58,2.05,.5,58,C.leafDk,3,7,0,.7,1);
 mkQ(15.45,.5,55,15.45,2.2,55,15.45,2.2,62,15.45,.5,62,C.leafMd,3,7,0,.65,1);
 
-// [D] COURTYARD
 fl(-10,68,28,92,0,C.mud,15,5);
 fl(0,70,20,90,0,C.tile,10,4);
 for(let px=1;px<19;px+=3)for(let pz=70;pz<90;pz+=4)pillar(px,pz);
-// Jungle in courtyard corners
 tree(-8,70,8,2.8);tree(-7,80,9,3.0);tree(22,72,7,2.5);tree(21,83,8,2.9);
 bush(-6,75,1.2);bush(23,76,1.0);bush(-7,86,1.3);bush(22,88,0.9);
 groundVines(-10,68,-2,92);groundVines(20,68,28,92);
@@ -458,7 +475,6 @@ rainLayer(-8,70,36,22,0,6);
 ppr(24,68,10,36,24,'w');ppr(-18,68,12,36,24,'e');
 sign(24,18,72,4,1.4,'w',C.sGreen);sign(-18,10,78,5,1.2,'e',C.sBlue);
 
-// [E] KOMPLEKS
 room(2,92,16,132,IH);
 fl(4,95,14,99,.8,C.concLt,3,4);
 for(let pz=96;pz<130;pz+=5){pillar(3,pz);pillar(14.5,pz);}
@@ -471,20 +487,16 @@ room(16,97,26,105,IH);lit(21,100,IH,.6);
 room(16,112,26,122,IH);lit(21,116,IH,0);
 room(-6,102,2,117,IH);lit(-2,108,IH,.8);
 
-// [F] BACK ALLEY
 fl(-4,132,22,162,0,C.road,12,3);
 fl(-10,132,-4,162,0,C.mud,8,5);fl(22,132,28,162,0,C.mud,8,5);
 wW(132,162,-4,0,8,C.conc,10);wE(132,162,22,0,8,C.conc,10);
 sign(-4,3,135,2,1,'e',C.sGreen);sign(-4,3,148,3,1.3,'e',C.sYellow);
 sign(22,4,140,4,1.5,'w',C.sBlue);sign(22,2.5,155,2,.8,'w',C.sGreen);
-// Jungle breaking through alley walls
 tree(-8,136,6,2.2);tree(-9,148,7,2.5);tree(25,140,5,2.0);tree(26,155,8,2.8);
 bush(-6,143,1.0);bush(24,150,1.1);
 mistPlane(-4,132,22,162,.5);
-rainLayer(0,134,18,28,0,6);
-rainLayer(0,148,18,14,0,6);
+rainLayer(0,134,18,28,0,6);rainLayer(0,148,18,14,0,6);
 
-// [G] PPR SLAB
 room(2,162,16,182,IH);
 ppr(-16,162,4,24,25,'e');ppr(18,162,4,24,25,'w');
 lit(9,165,IH,.5);lit(9,172,IH,0);lit(9,179,IH,.7);
@@ -493,7 +505,6 @@ tree(-14,164,9,3.0);tree(-12,172,8,2.6);tree(22,165,7,2.4);tree(20,176,9,3.1);
 groundVines(-16,162,0,182);groundVines(18,162,22,182);
 mistPlane(-16,162,22,182,.4);
 
-// [H] INFINITE CORRIDOR
 const INF=182,SEG=8,NSEGS=40;
 for(let s=0;s<NSEGS;s++){
   const z0=INF+s*SEG,z1=z0+SEG;
@@ -503,7 +514,6 @@ for(let s=0;s<NSEGS;s++){
   if(s%4===0)sign(4,2,z0+1,1.5,.7,'e',C.sGreen);
   if(s%5===0)sign(13.5,2,z0+2,2,.8,'w',C.sBlue);
   if(s%7===0)sign(4,2,z0+4,1.8,.7,'e',C.sYellow);
-  // mist wisps inside corridor
   if(s%3===0)mkQ(4.1,.1,z0+2,13.9,.1,z0+2,13.9,.1,z0+6,4.1,.1,z0+6,C.mist,2,9,0,.3);
 }
 
@@ -550,44 +560,64 @@ function viewMat(){
 }
 
 // ── GHOST LOGIC ───────────────────────────────────────────────────────────────
-// Ghost appears 25-35 units ahead in the Z direction, centered on corridor
-// Fades out when player gets within 8 units
-function ghostVisible(t){
-  // appears in infinite corridor or long corridors
-  return cam.z>80;
-}
+function ghostVisible(){return cam.z>80;}
 function ghostPos(t){
-  const ahead=28+Math.sin(t*0.15)*5;
-  const gz=cam.z+ahead;
-  const gx=9+Math.sin(t*0.08)*0.8; // slight drift
-  return{x:gx,z:gz};
+  return{x:9+Math.sin(t*0.08)*0.8,z:cam.z+(28+Math.sin(t*0.15)*5)};
 }
 function ghostAlpha(t){
   const gp=ghostPos(t);
   const dist=Math.sqrt((gp.x-cam.x)**2+(gp.z-cam.z)**2);
-  if(dist<8)return 0; // vanishes when you get close
-  if(dist>40)return 0;
+  if(dist<8||dist>40)return 0;
   return Math.min(1,(dist-8)/12)*0.7*(0.5+0.5*Math.sin(t*1.7));
 }
 
 // ── INPUT ─────────────────────────────────────────────────────────────────────
 const keys={},mv={f:0,b:0,l:0,r:0};
-window.addEventListener('keydown',e=>keys[e.key.toLowerCase()]=true);
-window.addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
+window.addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+
 let lx=null,ly=null;
 const lzone=document.getElementById('look-zone');
-lzone.addEventListener('touchstart',e=>{const t=e.touches[0];lx=t.clientX;ly=t.clientY;},{passive:true});
+
+lzone.addEventListener('touchstart',e=>{
+  // Only grab first touch, ignore if it hits a button
+  const t=e.touches[0];
+  lx=t.clientX;ly=t.clientY;
+},{passive:true});
+
 lzone.addEventListener('touchmove',e=>{
-  e.preventDefault();const t=e.touches[0];
-  if(lx!==null){cam.yaw-=(t.clientX-lx)*.003;cam.pitch-=(t.clientY-ly)*.003;}
-  cam.pitch=Math.max(-.9,Math.min(.9,cam.pitch));
+  e.preventDefault();
+  const t=e.touches[0];
+  if(lx!==null){
+    cam.yaw  -= (t.clientX-lx)*0.003;
+    cam.pitch -= (t.clientY-ly)*0.003;
+    cam.pitch = Math.max(-.9,Math.min(.9,cam.pitch));
+  }
   lx=t.clientX;ly=t.clientY;
 },{passive:false});
+
 lzone.addEventListener('touchend',()=>{lx=null;ly=null;});
+lzone.addEventListener('touchcancel',()=>{lx=null;ly=null;});
+
+// Mouse look (desktop)
+let mouseDown=false;
+lzone.addEventListener('mousedown',e=>{mouseDown=true;lx=e.clientX;ly=e.clientY;});
+window.addEventListener('mouseup',()=>{mouseDown=false;lx=null;ly=null;});
+window.addEventListener('mousemove',e=>{
+  if(!mouseDown||lx===null)return;
+  cam.yaw  -= (e.clientX-lx)*0.003;
+  cam.pitch -= (e.clientY-ly)*0.003;
+  cam.pitch = Math.max(-.9,Math.min(.9,cam.pitch));
+  lx=e.clientX;ly=e.clientY;
+});
+
 function bindBtn(id,p){
   const el=document.getElementById(id);
-  ['touchstart','mousedown'].forEach(ev=>el.addEventListener(ev,e=>{e.preventDefault();mv[p]=1;el.classList.add('active');},{passive:false}));
-  ['touchend','mouseup','touchcancel'].forEach(ev=>el.addEventListener(ev,()=>{mv[p]=0;el.classList.remove('active');}));
+  el.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();mv[p]=1;el.classList.add('active');},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();mv[p]=0;el.classList.remove('active');},{passive:false});
+  el.addEventListener('touchcancel',()=>{mv[p]=0;el.classList.remove('active');});
+  el.addEventListener('mousedown',e=>{e.preventDefault();mv[p]=1;el.classList.add('active');});
+  el.addEventListener('mouseup',()=>{mv[p]=0;el.classList.remove('active');});
 }
 bindBtn('bf','f');bindBtn('bb','b');bindBtn('bl','l');bindBtn('br','r');
 
@@ -603,43 +633,44 @@ function tickFlicker(dt){
 // ── DRAW ──────────────────────────────────────────────────────────────────────
 function drawMesh(mesh,vp,t){
   gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buf);
-  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);gl.enableVertexAttribArray(LOC.aPos);
-  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);gl.enableVertexAttribArray(LOC.aUV);
+  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);
+  gl.enableVertexAttribArray(LOC.aPos);
+  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);
+  gl.enableVertexAttribArray(LOC.aUV);
   gl.uniformMatrix4fv(LOC.uMVP,false,vp);
   gl.uniform3fv(LOC.uColor,mesh.color);
   gl.uniform1f(LOC.uTile,mesh.tile);
   gl.uniform1i(LOC.uType,mesh.type);
   gl.uniform1i(LOC.uWave,mesh.wave||0);
   gl.uniform1f(LOC.uAlpha,mesh.alpha||1.0);
-  let flk=mesh.flickRate>0?(mesh._on?(0.9+.1*Math.sin(t*18)):0):(0.97+.03*Math.sin(t*.5));
+  const flk=mesh.flickRate>0
+    ?(mesh._on?(0.9+.1*Math.sin(t*18)):0)
+    :(0.97+.03*Math.sin(t*.5));
   gl.uniform1f(LOC.uFlicker,flk);
   gl.drawArrays(gl.TRIANGLES,0,mesh.count);
 }
 
 function drawGhost(vp,t){
-  if(!ghostVisible(t))return;
+  if(!ghostVisible())return;
   const ga=ghostAlpha(t);
   if(ga<=0)return;
   const gp=ghostPos(t);
-  // update ghost quad to face camera (billboard)
   const dx=cam.x-gp.x,dz=cam.z-gp.z;
   const angle=Math.atan2(dx,dz);
   const cos=Math.cos(angle),sin=Math.sin(angle);
   const w=0.6,h=1.9;
   const x0=gp.x-cos*w,z0=gp.z+sin*w;
   const x1=gp.x+cos*w,z1=gp.z-sin*w;
-  const data=[
-    x0,0,z0,0,0,
-    x1,0,z1,1,0,
-    x1,h,z1,1,1,
-    x1,h,z1,1,1,
-    x0,h,z0,0,1,
-    x0,0,z0,0,0,
-  ];
+  const data=new Float32Array([
+    x0,0,z0,0,0,  x1,0,z1,1,0,  x1,h,z1,1,1,
+    x1,h,z1,1,1,  x0,h,z0,0,1,  x0,0,z0,0,0,
+  ]);
   gl.bindBuffer(gl.ARRAY_BUFFER,ghostBuf);
-  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.DYNAMIC_DRAW);
-  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);gl.enableVertexAttribArray(LOC.aPos);
-  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);gl.enableVertexAttribArray(LOC.aUV);
+  gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
+  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);
+  gl.enableVertexAttribArray(LOC.aPos);
+  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);
+  gl.enableVertexAttribArray(LOC.aUV);
   gl.uniformMatrix4fv(LOC.uMVP,false,vp);
   gl.uniform3fv(LOC.uColor,[0.88,0.94,0.90]);
   gl.uniform1f(LOC.uTile,1);
@@ -651,36 +682,45 @@ function drawGhost(vp,t){
 }
 
 // ── LOOP ──────────────────────────────────────────────────────────────────────
-let last=0;
+let last=0,started=false;
 function loop(ts){
   const dt=Math.min((ts-last)/1000,.05);last=ts;
   const t=ts/1000;
+
+  // Hide loading screen on first frame
+  if(!started){started=true;loadEl.style.display='none';}
+
   const spd=5.5;
   const sy=Math.sin(cam.yaw),cy=Math.cos(cam.yaw);
-  const fwd=mv.f||keys['w']||keys['arrowup']?1:0;
-  const bwd=mv.b||keys['s']||keys['arrowdown']?1:0;
-  const lft=mv.l||keys['a']||keys['arrowleft']?1:0;
-  const rgt=mv.r||keys['d']||keys['arrowright']?1:0;
+  const fwd=(mv.f||keys['w']||keys['arrowup'])?1:0;
+  const bwd=(mv.b||keys['s']||keys['arrowdown'])?1:0;
+  const lft=(mv.l||keys['a']||keys['arrowleft'])?1:0;
+  const rgt=(mv.r||keys['d']||keys['arrowright'])?1:0;
   cam.x+=(sy*(fwd-bwd)+cy*(rgt-lft))*spd*dt;
   cam.z+=(cy*(fwd-bwd)-sy*(rgt-lft))*spd*dt;
-  tickFlicker(dt);checkZone();
+
+  tickFlicker(dt);
+  checkZone();
   document.getElementById('hud-coords').textContent=`${cam.x.toFixed(1)} · ${cam.z.toFixed(1)}`;
+
   gl.enable(gl.DEPTH_TEST);
   gl.clearColor(.01,.02,.01,1);
   gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+
   const proj=persp(m4(),1.05,canvas.width/canvas.height,.1,100);
   const view=viewMat();
   const vp=mul(m4(),proj,view);
   gl.uniform1f(LOC.uTime,t);
-  // opaque first
+
   gl.disable(gl.BLEND);
   meshes.filter(m=>!m.transparent).forEach(m=>drawMesh(m,vp,t));
-  // transparent after
+
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   meshes.filter(m=>m.transparent).forEach(m=>drawMesh(m,vp,t));
   drawGhost(vp,t);
   gl.disable(gl.BLEND);
+
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
