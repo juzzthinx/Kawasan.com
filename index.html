@@ -24,6 +24,26 @@ canvas { position:fixed; top:0; left:0; width:100%; height:100%; display:block; 
   color:#8aaa80; opacity:0; transition:opacity 0.6s;
   pointer-events:none; z-index:20; text-transform:uppercase;
 }
+/* Horror flash overlay */
+#flash {
+  position:fixed; inset:0;
+  background:#fff;
+  opacity:0; pointer-events:none;
+  z-index:50; transition:opacity 0.05s;
+}
+/* Horror image frame */
+#horror-frame {
+  position:fixed; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  z-index:60; pointer-events:none; opacity:0;
+}
+#horror-frame canvas {
+  position:static;
+  width:min(320px,80vw); height:auto;
+  border:2px solid rgba(138,170,128,0.3);
+  box-shadow: 0 0 40px rgba(0,0,0,0.9);
+  filter:contrast(1.4) brightness(0.7) grayscale(0.3);
+}
 #look-zone {
   position:fixed; top:0; left:0; right:0; bottom:170px;
   z-index:5; touch-action:none;
@@ -72,6 +92,8 @@ canvas { position:fixed; top:0; left:0; width:100%; height:100%; display:block; 
 <body>
 <div id="loading"><span>KAWASAN</span></div>
 <div id="error"><p>WEBGL TIDAK DISOKONG<br>CUBA PELAYAR LAIN</p></div>
+<div id="flash"></div>
+<div id="horror-frame"><canvas id="hfc" width="200" height="280"></canvas></div>
 <div id="hud">
   <div id="hud-title">KAWASAN</div>
   <div id="hud-coords">—</div>
@@ -95,11 +117,15 @@ canvas { position:fixed; top:0; left:0; width:100%; height:100%; display:block; 
 const canvas = document.getElementById('c');
 const loadEl = document.getElementById('loading');
 const errEl  = document.getElementById('error');
+const flashEl= document.getElementById('flash');
+const hframeEl=document.getElementById('horror-frame');
+const hfc    = document.getElementById('hfc'); // horror frame canvas
+const hctx   = hfc.getContext('2d');
 
 let gl = null;
 try {
-  gl = canvas.getContext('webgl', {antialias:false, alpha:false})
-    || canvas.getContext('experimental-webgl', {antialias:false, alpha:false});
+  gl = canvas.getContext('webgl', {antialias:true, alpha:false})
+    || canvas.getContext('experimental-webgl', {antialias:true, alpha:false});
 } catch(e) {}
 
 if (!gl) {
@@ -160,6 +186,11 @@ float noise(vec2 p){
   vec2 u=f*f*(3.0-2.0*f);
   return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
 }
+float fbm(vec2 p){
+  float v=0.0,a=0.5;
+  for(int i=0;i<4;i++){v+=a*noise(p);p*=2.1;a*=0.5;}
+  return v;
+}
 float grid(vec2 uv){vec2 g=abs(fract(uv)-0.5);return 1.0-smoothstep(0.0,0.04,min(g.x,g.y));}
 
 void main(){
@@ -169,7 +200,7 @@ void main(){
   vec3 fogCol=vec3(0.04,0.07,0.04);
   float alpha=uAlpha;
 
-  if(uType==0){
+  if(uType==0){ // concrete — improved with AO and wetness
     float n=hash(floor(uv));
     float crack=hash(floor(uv*2.3)+vec2(7.1,3.3));
     col=uColor*(0.8+n*0.1-crack*0.05);
@@ -177,75 +208,102 @@ void main(){
     float stain=hash(vec2(floor(uv.x),floor(uv.y*0.4)));
     col*=0.9+stain*0.14;
     float mossy=smoothstep(0.0,2.0,vWorld.y);
-    float moss=noise(vWorld.xz*0.8+vec2(3.1,1.4));
+    float moss=fbm(vWorld.xz*0.8+vec2(3.1,1.4));
     col=mix(col*vec3(0.7,0.9,0.6),col,mossy*0.6+0.4);
     col=mix(col,col*vec3(0.6,0.85,0.5),moss*(1.0-mossy)*0.4);
+    // wet sheen on lower surfaces
+    float wet=smoothstep(1.5,0.0,vWorld.y)*fbm(vUV*3.0)*0.12;
+    col+=vec3(wet*0.3,wet*0.45,wet*0.3);
   }
-  else if(uType==1){
+  else if(uType==1){ // sign
     float brd=step(0.06,vUV.x)*step(vUV.x,0.94)*step(0.08,vUV.y)*step(vUV.y,0.92);
     col=mix(uColor*1.4,uColor,brd);
     if(vUV.y>0.55&&vUV.y<0.70){float t=step(0.0,sin(vUV.x*30.0))*step(0.0,sin(vUV.x*7.0));col=mix(col,uColor*2.4,t*0.8);}
     if(vUV.y>0.30&&vUV.y<0.45){float t=step(0.0,sin(vUV.x*20.0+1.2))*step(0.0,sin(vUV.x*5.0));col=mix(col,uColor*2.0,t*0.65);}
   }
-  else if(uType==2){
-    float cloud=noise(uv*0.3+vec2(uTime*0.01,0.0));
-    col=mix(uColor,uColor*1.4,cloud*0.3);
+  else if(uType==2){ // sky — volumetric clouds
+    // multi-octave cloud
+    vec2 cloudUV=uv*0.15+vec2(uTime*0.008,uTime*0.003);
+    float c1=fbm(cloudUV);
+    float c2=fbm(cloudUV*2.1+vec2(5.3,1.7));
+    float cloud=smoothstep(0.35,0.75,c1*0.7+c2*0.3);
+    // cloud lighting — moonlit edge
+    float edge=fbm(cloudUV+vec2(0.01,0.0))-c1;
+    vec3 cloudCol=mix(vec3(0.06,0.09,0.07),vec3(0.18,0.22,0.18),cloud);
+    cloudCol+=vec3(0.12,0.16,0.12)*max(0.0,-edge*8.0)*cloud; // silver lining
+    col=mix(uColor,cloudCol,cloud*0.85);
+    // stars through cloud gaps
     float star=step(0.994,hash(floor(uv*30.0)));
-    col+=vec3(star*0.5)*(1.0-cloud*0.8);
+    col+=vec3(star*0.6)*(1.0-cloud*0.95);
+    // moon glow
+    float moonDist=length(uv*0.05-vec2(0.3,0.6));
+    col+=vec3(0.08,0.10,0.08)*smoothstep(0.4,0.0,moonDist)*(1.0-cloud*0.7);
   }
-  else if(uType==3){
+  else if(uType==3){ // road — improved wet
     float n=hash(floor(uv*3.0));
     col=uColor*(0.85+n*0.1);
     float dsh=step(0.46,vUV.x)*step(vUV.x,0.54);
     float dlng=step(0.0,sin(vUV.y*uTile*3.14));
     col=mix(col,vec3(0.6,0.6,0.55),dsh*dlng*0.5);
-    float wet=noise(uv*2.0+vec2(0.0,uTime*0.1))*0.15;
-    col+=vec3(wet*0.3,wet*0.4,wet*0.3);
+    float wet=fbm(uv*1.5+vec2(0.0,uTime*0.08))*0.2;
+    col+=vec3(wet*0.25,wet*0.38,wet*0.25);
+    // puddle reflections
+    float puddle=smoothstep(0.52,0.72,noise(uv*0.6+vec2(2.1,0.8)));
+    col=mix(col,vec3(0.06,0.10,0.06)*1.5,puddle*0.4);
   }
-  else if(uType==4){
+  else if(uType==4){ // floor tile — improved grout
     float n=hash(floor(uv));
     col=uColor*(0.82+n*0.1);
     col+=grid(uv)*0.09*uColor;
+    float dirt=fbm(uv*0.5+vec2(1.1,2.3))*0.08;
+    col*=1.0-dirt;
   }
-  else if(uType==5){
-    float n=noise(uv*1.5);
+  else if(uType==5){ // ground / mud — richer
+    float n=fbm(uv*1.2);
     float b=hash(floor(uv*4.0));
-    col=uColor*(0.7+n*0.2+b*0.06);
+    col=uColor*(0.65+n*0.25+b*0.06);
     float puddle=smoothstep(0.55,0.75,noise(uv*0.8+vec2(1.3,2.1)));
-    col=mix(col,vec3(0.08,0.12,0.08)*1.2,puddle*0.5);
+    col=mix(col,vec3(0.07,0.11,0.07)*1.3,puddle*0.55);
   }
-  else if(uType==6){
+  else if(uType==6){ // window — neon flicker
     float frame=1.0-step(0.1,vUV.x)*step(vUV.x,0.9)*step(0.08,vUV.y)*step(vUV.y,0.92);
-    col=mix(uColor*0.12,uColor*0.35,frame);
+    col=mix(uColor*0.10,uColor*0.32,frame);
     float glow=hash(floor(vUV*0.5+vec2(1.3,2.7)));
-    if(glow>0.72) col+=vec3(0.02,0.05,0.02)*step(0.1,vUV.x)*step(vUV.x,0.9);
+    if(glow>0.72) col+=vec3(0.02,0.06,0.03)*step(0.1,vUV.x)*step(vUV.x,0.9);
+    // TV flicker in some windows
+    float tvFlicker=step(0.88,hash(floor(vUV*0.3+vec2(uTime*0.5,3.1))+vec2(2.2,0.0)));
+    col+=vec3(0.0,0.04,0.02)*tvFlicker*(1.0-frame);
   }
-  else if(uType==7){
-    float n=noise(uv*3.0+vec2(uTime*0.2,0.0));
-    float hole=step(0.42,n);
-    col=uColor*(0.7+n*0.4);
+  else if(uType==7){ // leaves — jungle canopy
+    float n=fbm(uv*2.5+vec2(uTime*0.15,0.0));
+    float hole=step(0.44,n);
+    col=uColor*(0.65+n*0.45);
     if(hole<0.5) alpha=0.0;
-    else alpha=uAlpha*(0.6+n*0.4);
+    else alpha=uAlpha*(0.55+n*0.45);
+    // backlit rim
+    col+=vec3(0.0,0.04,0.0)*smoothstep(0.7,1.0,n);
   }
-  else if(uType==8){
+  else if(uType==8){ // trunk
     float n=hash(floor(uv*4.0));
     col=uColor*(0.75+n*0.15);
     float bark=step(0.0,sin(vUV.y*uTile*6.28*2.0))*0.1;
     col*=1.0-bark*0.2;
   }
-  else if(uType==9){
-    float n=noise(uv*0.5+vec2(uTime*0.05,uTime*0.02));
-    float n2=noise(uv*1.2-vec2(uTime*0.03,0.0));
+  else if(uType==9){ // mist
+    float n=fbm(uv*0.4+vec2(uTime*0.04,uTime*0.015));
+    float n2=noise(uv*1.1-vec2(uTime*0.025,0.0));
     float density=(n*0.6+n2*0.4);
-    alpha=uAlpha*density*0.7*(1.0-vFog*0.5);
+    alpha=uAlpha*density*0.75*(1.0-vFog*0.4);
     col=uColor*(0.8+density*0.3);
   }
-  else if(uType==10){
-    float streak=step(0.85,hash(floor(uv*vec2(40.0,8.0))+vec2(floor(uTime*12.0),0.0)));
-    alpha=streak*0.25*(1.0-vFog*0.8);
-    col=vec3(0.6,0.7,0.65);
+  else if(uType==10){ // rain — angled streaks
+    vec2 ruv=uv+vec2(uTime*0.3,uTime*1.5); // moving streaks
+    float streak=step(0.87,hash(floor(ruv*vec2(35.0,6.0))));
+    float angle=ruv.x*0.15; // slight diagonal
+    alpha=streak*0.22*(1.0-vFog*0.75)*clamp(1.0-abs(fract(ruv.y+angle)-0.5)*6.0,0.0,1.0);
+    col=vec3(0.55,0.68,0.60);
   }
-  else if(uType==11){
+  else if(uType==11){ // ghost / white mist figure
     float cx=abs(vUV.x-0.5)*2.0;
     float cy=vUV.y;
     float head=smoothstep(0.25,0.0,length(vec2(cx,cy-0.82)*vec2(1.0,1.4)));
@@ -255,6 +313,41 @@ void main(){
     float flicker2=0.5+0.5*sin(uTime*3.1+n*6.28);
     alpha=shape*uAlpha*flicker2*(0.4+n*0.3);
     col=vec3(0.88,0.94,0.90);
+  }
+  else if(uType==12){ // nenek / grandmother silhouette
+    float cx=abs(vUV.x-0.5)*2.0;
+    float cy=vUV.y;
+    // hunched body — shifted center of mass forward
+    float head=smoothstep(0.22,0.0,length(vec2(cx-0.15,cy-0.78)*vec2(1.1,1.3)));
+    float body=smoothstep(0.45,0.0,length(vec2(cx*0.6-0.08,(cy-0.42)*0.55)));
+    // walking stick
+    float stick=smoothstep(0.04,0.0,abs(vUV.x-0.72))*step(0.15,cy)*step(cy,0.62);
+    float shape=clamp(head+body+stick,0.0,1.0);
+    float n=noise(uv*2.0+vec2(uTime*0.1,0.0));
+    alpha=shape*uAlpha*(0.6+n*0.15);
+    col=vec3(0.05,0.06,0.05); // very dark silhouette
+  }
+  else if(uType==13){ // corridor Asian decor — batik-like wall pattern
+    float px=fract(uv.x*4.0),py=fract(uv.y*3.0);
+    float pat=step(0.0,sin(px*6.28*3.0+py*6.28*2.0))*0.5+0.5;
+    float pat2=noise(uv*2.0)*0.3;
+    col=mix(uColor,uColor*1.6,pat*0.25+pat2);
+    col+=uColor*0.15*step(0.92,sin(uv.x*20.0)*sin(uv.y*20.0));
+  }
+  else if(uType==14){ // cloud billboard — volumetric puff
+    float cx=abs(vUV.x-0.5)*2.0;
+    float cy=abs(vUV.y-0.5)*2.0;
+    float base=smoothstep(1.0,0.0,length(vec2(cx,cy)));
+    float n=fbm(vUV*3.0+vec2(uTime*0.005,0.0));
+    float n2=fbm(vUV*6.0-vec2(uTime*0.003,0.0));
+    float shape=base*(0.6+n*0.4);
+    float edge=smoothstep(0.3,0.7,shape+n2*0.3);
+    alpha=edge*uAlpha*(0.5+n*0.3);
+    // cloud lighting — top brighter, bottom darker
+    float light=mix(0.7,1.2,vUV.y);
+    col=uColor*light*(0.8+n*0.3);
+    // silver rim
+    col+=vec3(0.15,0.18,0.15)*smoothstep(0.5,0.8,shape);
   }
 
   col*=uFlicker;
@@ -323,27 +416,29 @@ function mkQ(x0,y0,z0,x1,y1,z1,x2,y2,z2,x3,y3,z3,col,tile,type,flickRate,alpha,w
   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(d),gl.STATIC_DRAW);
   meshes.push({buf,count:6,color:col,tile:tile||1,type:type||0,
     flickRate:flickRate||0,alpha:alpha||1.0,wave:wave||0,
-    _on:true,_t:Math.random()*4,transparent:(alpha||1.0)<1.0||(type===9||type===10||type===11||type===7)});
+    _on:true,_t:Math.random()*4,
+    transparent:(alpha||1.0)<1.0||(type===9||type===10||type===11||type===12||type===7||type===14)});
 }
 
 // ── PRIMITIVES ────────────────────────────────────────────────────────────────
-const IH=3.5,SW=7;
+const IH=3.5;
 const C={
   conc:[0.40,0.42,0.38],concDk:[0.28,0.30,0.26],concLt:[0.50,0.52,0.48],
-  tile:[0.36,0.38,0.34],road:[0.20,0.22,0.19],sky:[0.03,0.05,0.04],
+  tile:[0.36,0.38,0.34],road:[0.20,0.22,0.19],sky:[0.02,0.04,0.03],
   ground:[0.14,0.18,0.12],ppr:[0.42,0.44,0.40],pprAcc:[0.28,0.32,0.26],
   sGreen:[0.07,0.20,0.09],sBlue:[0.07,0.10,0.20],sYellow:[0.22,0.20,0.05],
   win:[0.08,0.12,0.10],light:[0.80,0.86,0.70],
   leafDk:[0.08,0.22,0.06],leafMd:[0.12,0.30,0.08],leafLt:[0.18,0.38,0.10],
   trunk:[0.18,0.14,0.10],mud:[0.12,0.16,0.10],mist:[0.60,0.72,0.60],
+  cloud:[0.22,0.28,0.22],batik:[0.30,0.26,0.20],nkCol:[0.05,0.06,0.05],
 };
 
 function fl(x0,z0,x1,z1,y,col,tile,type){mkQ(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1,col,tile,type||4,0,1.0);}
 function cl(x0,z0,x1,z1,y,col,tile){mkQ(x0,y,z0,x0,y,z1,x1,y,z1,x1,y,z0,col,tile||4,0,0,1.0);}
-function wN(x0,x1,z,y0,y1,col,tile){mkQ(x0,y0,z,x1,y0,z,x1,y1,z,x0,y1,z,col,tile||5,0);}
-function wS(x0,x1,z,y0,y1,col,tile){mkQ(x1,y0,z,x0,y0,z,x0,y1,z,x1,y1,z,col,tile||5,0);}
-function wW(z0,z1,x,y0,y1,col,tile){mkQ(x,y0,z1,x,y0,z0,x,y1,z0,x,y1,z1,col,tile||5,0);}
-function wE(z0,z1,x,y0,y1,col,tile){mkQ(x,y0,z0,x,y0,z1,x,y1,z1,x,y1,z0,col,tile||5,0);}
+function wN(x0,x1,z,y0,y1,col,tile,type){mkQ(x0,y0,z,x1,y0,z,x1,y1,z,x0,y1,z,col,tile||5,type||0);}
+function wS(x0,x1,z,y0,y1,col,tile,type){mkQ(x1,y0,z,x0,y0,z,x0,y1,z,x1,y1,z,col,tile||5,type||0);}
+function wW(z0,z1,x,y0,y1,col,tile,type){mkQ(x,y0,z1,x,y0,z0,x,y1,z0,x,y1,z1,col,tile||5,type||0);}
+function wE(z0,z1,x,y0,y1,col,tile,type){mkQ(x,y0,z0,x,y0,z1,x,y1,z1,x,y1,z0,col,tile||5,type||0);}
 
 function room(x0,z0,x1,z1,h,ftype){
   fl(x0,z0,x1,z1,0,C.tile,8,ftype||4);
@@ -364,9 +459,9 @@ function sign(x,y,z,w,h,face,col){
 }
 function pillar(x,z,h){
   const s=0.55;
-  fl(x,z,x+s,z+s,h,C.concDk,2);
-  wW(z,z+s,x,0,h,C.concDk,2);wE(z,z+s,x+s,0,h,C.concDk,2);
-  wN(x,x+s,z,0,h,C.conc,2);wS(x,x+s,z+s,0,h,C.conc,2);
+  fl(x,z,x+s,z+s,h||IH,C.concDk,2);
+  wW(z,z+s,x,0,h||IH,C.concDk,2);wE(z,z+s,x+s,0,h||IH,C.concDk,2);
+  wN(x,x+s,z,0,h||IH,C.conc,2);wS(x,x+s,z+s,0,h||IH,C.conc,2);
 }
 function ppr(bx,bz,bw,bh,bd,face){
   if(face==='s')wN(bx,bx+bw,bz,0,bh,C.ppr,8);
@@ -389,8 +484,8 @@ function ppr(bx,bz,bw,bh,bd,face){
 
 function tree(x,z,h,spread){
   const th=h*.35,tw=0.22;
-  wW(z-tw,z+tw,x-tw,0,th,C.trunk,3);wE(z-tw,z+tw,x+tw,0,th,C.trunk,3);
-  wN(x-tw,x+tw,z-tw,0,th,C.trunk,3);wS(x-tw,x+tw,z+tw,0,th,C.trunk,3);
+  wW(z-tw,z+tw,x-tw,0,th,C.trunk,3,8);wE(z-tw,z+tw,x+tw,0,th,C.trunk,3,8);
+  wN(x-tw,x+tw,z-tw,0,th,C.trunk,3,8);wS(x-tw,x+tw,z+tw,0,th,C.trunk,3,8);
   const lc=[C.leafDk,C.leafMd,C.leafLt];
   for(let l=0;l<3;l++){
     const ly=th+l*(h-th)/3,ls=spread*(1.0-l*0.2),col=lc[l];
@@ -399,13 +494,11 @@ function tree(x,z,h,spread){
     mkQ(x-ls*.7,ly,z-ls*.7,x+ls*.7,ly,z+ls*.7,x+ls*.7,ly+ls*1.2,z+ls*.7,x-ls*.7,ly+ls*1.2,z-ls*.7,col,2,7,0,0.88,1);
   }
 }
-
 function bush(x,z,h){
   const col=C.leafDk,s=h;
   mkQ(x-s,0,z,x+s,0,z,x+s,h*1.5,z,x-s,h*1.5,z,col,1,7,0,0.9,1);
   mkQ(x,0,z-s,x,0,z+s,x,h*1.5,z+s,x,h*1.5,z-s,col,1,7,0,0.9,1);
 }
-
 function groundVines(x0,z0,x1,z1){fl(x0,z0,x1,z1,0.02,C.leafDk,4,7);}
 function mistPlane(x0,z0,x1,z1,y){mkQ(x0,y,z0,x1,y,z0,x1,y,z1,x0,y,z1,C.mist,3,9,0,0.55);}
 function rainLayer(x,z,w,d,y0,y1){
@@ -413,28 +506,44 @@ function rainLayer(x,z,w,d,y0,y1){
   mkQ(x,y1,z+d*.5,x+w,y1,z+d*.5,x+w,y0,z+d*.5,x,y0,z+d*.5,C.mist,6,10,0,0.3);
 }
 
-// ── GHOST ─────────────────────────────────────────────────────────────────────
-function makeGhost(){
-  const d=new Float32Array(30);
+// ── VOLUMETRIC CLOUD BILLBOARDS ───────────────────────────────────────────────
+function cloudBill(x,y,z,w,h){
+  // billboard facing south (always visible from below corridor level)
+  mkQ(x-w,y,z,x+w,y,z,x+w,y+h,z,x-w,y+h,z,C.cloud,1,14,0,0.75);
+  mkQ(x-w*.7,y,z+w*.4,x+w*.7,y,z+w*.4,x+w*.7,y+h*.8,z+w*.4,x-w*.7,y+h*.8,z+w*.4,C.cloud,1,14,0,0.60);
+}
+// Scatter clouds in the outdoor/open zones
+for(let ci=0;ci<18;ci++){
+  const cx=-15+ci*6+Math.sin(ci*1.7)*3;
+  const cz=22+ci*8+Math.cos(ci*2.3)*4;
+  const ch=40+Math.sin(ci*0.9)*8;
+  cloudBill(cx,ch,cz,8+Math.cos(ci)*3,5+Math.sin(ci*0.5)*2);
+}
+
+// ── DYNAMIC BUFFERS ───────────────────────────────────────────────────────────
+function makeDynBuf(){
   const buf=gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-  gl.bufferData(gl.ARRAY_BUFFER,d,gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(30),gl.DYNAMIC_DRAW);
   return buf;
 }
-const ghostBuf=makeGhost();
+const ghostBuf=makeDynBuf();
+const nenekBuf=makeDynBuf();
 
 // ── SKY ───────────────────────────────────────────────────────────────────────
 const S=200,SH=80;
 mkQ(-S,SH,-S,S,SH,-S,S,SH,S,-S,SH,S,C.sky,40,2,0,1.0);
-wN(-S,S,-S,0,SH,C.sky,20);wS(-S,S,S,0,SH,C.sky,20);
-wW(-S,S,-S,0,SH,C.sky,20);wE(-S,S,S,0,SH,C.sky,20);
+wN(-S,S,-S,0,SH,C.sky,20,2);wS(-S,S,S,0,SH,C.sky,20,2);
+wW(-S,S,-S,0,SH,C.sky,20,2);wE(-S,S,S,0,SH,C.sky,20,2);
 
 // ── WORLD ─────────────────────────────────────────────────────────────────────
+// [A] LOBBY
 room(4,0,14,20,IH);
 pillar(5.5,2);pillar(11,2);pillar(5.5,13);pillar(11,13);
 lit(9,2,IH,0);lit(9,10,IH,0.7);lit(9,17,IH,0);
 sign(4,2.2,3,2,.9,'e',C.sGreen);sign(13.5,2.2,8,2,.9,'w',C.sBlue);
 
+// [B] OUTDOOR STREET
 fl(-18,20,38,48,0,C.road,14,3);
 fl(-18,20,-14,48,0,C.mud,10,5);
 fl(24,20,38,48,0,C.mud,10,5);
@@ -452,10 +561,10 @@ tree(27,23,8,2.6);tree(30,29,7,2.4);tree(28,36,9,3.1);
 tree(32,41,6,2.0);tree(26,44,10,3.3);
 bush(28,26,1.1);bush(31,32,0.9);bush(27,39,1.3);bush(33,43,1.0);
 groundVines(24,21,37,47);
-
 mistPlane(-18,20,38,48,0.3);mistPlane(-18,20,38,48,1.2);
 rainLayer(-10,22,28,28,0,6);rainLayer(-10,30,28,18,0,6);rainLayer(-10,38,28,10,0,6);
 
+// [C] COVERED WALKWAY
 room(2,48,16,68,IH);
 for(let pz=50;pz<67;pz+=4){pillar(2.5,pz);pillar(14,pz);}
 lit(9,50,IH,0);lit(9,55,IH,.5);lit(9,60,IH,0);lit(9,65,IH,.8);
@@ -464,6 +573,7 @@ sign(15.5,2,54,2,.8,'w',C.sBlue);sign(15.5,2,63,2,.8,'w',C.sGreen);
 mkQ(2.05,.5,52,2.05,2.8,52,2.05,2.8,58,2.05,.5,58,C.leafDk,3,7,0,.7,1);
 mkQ(15.45,.5,55,15.45,2.2,55,15.45,2.2,62,15.45,.5,62,C.leafMd,3,7,0,.65,1);
 
+// [D] COURTYARD
 fl(-10,68,28,92,0,C.mud,15,5);
 fl(0,70,20,90,0,C.tile,10,4);
 for(let px=1;px<19;px+=3)for(let pz=70;pz<90;pz+=4)pillar(px,pz);
@@ -475,6 +585,7 @@ rainLayer(-8,70,36,22,0,6);
 ppr(24,68,10,36,24,'w');ppr(-18,68,12,36,24,'e');
 sign(24,18,72,4,1.4,'w',C.sGreen);sign(-18,10,78,5,1.2,'e',C.sBlue);
 
+// [E] KOMPLEKS
 room(2,92,16,132,IH);
 fl(4,95,14,99,.8,C.concLt,3,4);
 for(let pz=96;pz<130;pz+=5){pillar(3,pz);pillar(14.5,pz);}
@@ -487,6 +598,7 @@ room(16,97,26,105,IH);lit(21,100,IH,.6);
 room(16,112,26,122,IH);lit(21,116,IH,0);
 room(-6,102,2,117,IH);lit(-2,108,IH,.8);
 
+// [F] BACK ALLEY
 fl(-4,132,22,162,0,C.road,12,3);
 fl(-10,132,-4,162,0,C.mud,8,5);fl(22,132,28,162,0,C.mud,8,5);
 wW(132,162,-4,0,8,C.conc,10);wE(132,162,22,0,8,C.conc,10);
@@ -497,6 +609,7 @@ bush(-6,143,1.0);bush(24,150,1.1);
 mistPlane(-4,132,22,162,.5);
 rainLayer(0,134,18,28,0,6);rainLayer(0,148,18,14,0,6);
 
+// [G] PPR SLAB
 room(2,162,16,182,IH);
 ppr(-16,162,4,24,25,'e');ppr(18,162,4,24,25,'w');
 lit(9,165,IH,.5);lit(9,172,IH,0);lit(9,179,IH,.7);
@@ -505,15 +618,47 @@ tree(-14,164,9,3.0);tree(-12,172,8,2.6);tree(22,165,7,2.4);tree(20,176,9,3.1);
 groundVines(-16,162,0,182);groundVines(18,162,22,182);
 mistPlane(-16,162,22,182,.4);
 
+// [H] INFINITE CORRIDOR — Asian touch
 const INF=182,SEG=8,NSEGS=40;
 for(let s=0;s<NSEGS;s++){
   const z0=INF+s*SEG,z1=z0+SEG;
-  room(4,z0,14,z1,IH);
+  // Room with batik-patterned walls
+  fl(4,z0,14,z1,0,C.tile,8,4);
+  cl(4,z0,14,z1,IH,C.concDk,5);
+  wW(z0,z1,4,0,IH,C.batik,6,13);   // left wall — batik pattern
+  wE(z0,z1,14,0,IH,C.batik,6,13);  // right wall
+  wN(4,14,z0,0,IH,C.conc,6);
+  wS(4,14,z1,0,IH,C.conc,6);
+
   const rate=s%3===0?0:s%3===1?.6:.95;
   lit(9,z0+1.5,IH,rate);
+
+  // Asian corridor details
   if(s%4===0)sign(4,2,z0+1,1.5,.7,'e',C.sGreen);
   if(s%5===0)sign(13.5,2,z0+2,2,.8,'w',C.sBlue);
   if(s%7===0)sign(4,2,z0+4,1.8,.7,'e',C.sYellow);
+
+  // Offering shelf on right wall — small horizontal ledge
+  if(s%6===0){
+    mkQ(13.5,1.8,z0+3,14.1,1.8,z0+3,14.1,1.8,z0+3.8,13.5,1.8,z0+3.8,C.concLt,1,4,0,1.0);
+    // "candle" glow dot on shelf
+    mkQ(13.6,1.85,z0+3.3,13.8,1.85,z0+3.3,13.8,1.85,z0+3.5,13.6,1.85,z0+3.5,C.light,1,0,0.8,1.0);
+  }
+
+  // Secret room at segment 33
+  if(s===33){
+    // Door slightly ajar — gap in east wall
+    wE(z0+1,z0+2.2,14.05,0,IH,C.concDk,2);
+    // Inside the secret room
+    room(14,z0,20,z0+6,IH);
+    lit(17,z0+3,IH,0.9);
+    // Red altar light
+    mkQ(16,1.5,z0+4.5,18,1.5,z0+4.5,18,1.5,z0+5.2,16,1.5,z0+5.2,[0.4,0.05,0.05],1,0,0.4,1.0);
+    sign(19.9,1.2,z0+1,3,1.8,'w',[0.25,0.08,0.08]);
+    sign(19.9,1.2,z0+3.5,2,1.4,'w',[0.20,0.05,0.05]);
+  }
+
+  // Mist wisps
   if(s%3===0)mkQ(4.1,.1,z0+2,13.9,.1,z0+2,13.9,.1,z0+6,4.1,.1,z0+6,C.mist,2,9,0,.3);
 }
 
@@ -526,7 +671,7 @@ const zones=[
   {x0:2,z0:92,x1:16,z1:132,n:'KOMPLEKS'},
   {x0:-4,z0:132,x1:22,z1:162,n:'LORONG BELAKANG'},
   {x0:2,z0:162,x1:16,z1:182,n:'BLOK TERAKHIR'},
-  {x0:4,z0:182,x1:14,z1:9999,n:'...'},
+  {x0:4,z0:182,x1:20,z1:9999,n:'...'},
 ];
 let curZone='',zTimer=null;
 const zMsg=document.getElementById('zone-msg');
@@ -559,16 +704,218 @@ function viewMat(){
   return m;
 }
 
-// ── GHOST LOGIC ───────────────────────────────────────────────────────────────
+// ── GHOST ─────────────────────────────────────────────────────────────────────
 function ghostVisible(){return cam.z>80;}
-function ghostPos(t){
-  return{x:9+Math.sin(t*0.08)*0.8,z:cam.z+(28+Math.sin(t*0.15)*5)};
-}
+function ghostPos(t){return{x:9+Math.sin(t*0.08)*0.8,z:cam.z+(28+Math.sin(t*0.15)*5)};}
 function ghostAlpha(t){
   const gp=ghostPos(t);
   const dist=Math.sqrt((gp.x-cam.x)**2+(gp.z-cam.z)**2);
   if(dist<8||dist>40)return 0;
   return Math.min(1,(dist-8)/12)*0.7*(0.5+0.5*Math.sin(t*1.7));
+}
+
+// ── NENEK (GRANDMOTHER) ───────────────────────────────────────────────────────
+// Wanders the outdoor and corridor zones
+const nenek={
+  x:10, z:30,        // start position
+  dir:0,             // yaw direction she walks
+  speed:0.8,
+  visible:false,
+  alpha:0,
+  phase:0,           // walking phase for gait
+  lastAppear:0,
+};
+
+function updateNenek(t,dt){
+  // Only appears outdoors or in deep corridor
+  const inOutdoor=(cam.z>20&&cam.z<162);
+  const inCorridor=(cam.z>300);
+  nenek.visible=(inOutdoor||inCorridor);
+
+  if(!nenek.visible){nenek.alpha=0;return;}
+
+  // Keep nenek 15-40 units away from player
+  const dx=cam.x-nenek.x,dz=cam.z-nenek.z;
+  const dist=Math.sqrt(dx*dx+dz*dz);
+
+  // Slowly turn toward a wander point, cross in front of player
+  nenek.dir+=Math.sin(t*0.3+nenek.x*0.1)*0.01;
+  nenek.x+=Math.sin(nenek.dir)*nenek.speed*dt;
+  nenek.z+=Math.cos(nenek.dir)*nenek.speed*dt;
+
+  // Respawn if too far
+  if(dist>50||dist<5){
+    const angle=cam.yaw+Math.PI*0.5*(Math.random()>0.5?1:-1);
+    nenek.x=cam.x+Math.sin(angle)*25;
+    nenek.z=cam.z+Math.cos(angle)*25;
+  }
+
+  // Fade in/out
+  const targetAlpha=(dist>8&&dist<45)?0.85:0;
+  nenek.alpha+=(targetAlpha-nenek.alpha)*dt*1.5;
+  nenek.phase+=dt*1.8; // walking gait oscillation
+}
+
+// ── HORROR FRAME SYSTEM ───────────────────────────────────────────────────────
+let horrorTimer=0;
+let horrorActive=false;
+let horrorDuration=0;
+const HORROR_INTERVAL=35; // seconds between scares
+const HORROR_TYPES=4;
+
+function drawHorrorFrame(type, t){
+  const w=hfc.width,h=hfc.height;
+  hctx.clearRect(0,0,w,h);
+  hctx.fillStyle='#000';
+  hctx.fillRect(0,0,w,h);
+
+  if(type===0){
+    // Old scratched photo — woman at window
+    hctx.fillStyle='#1a1a14';
+    hctx.fillRect(0,0,w,h);
+    // Window frame
+    hctx.strokeStyle='#3a3a2a';hctx.lineWidth=8;
+    hctx.strokeRect(20,20,w-40,h-40);
+    hctx.strokeRect(w/2-3,20,6,h-40);
+    hctx.strokeRect(20,h/2-3,w-40,6);
+    // Figure silhouette
+    hctx.fillStyle='#0a0a06';
+    hctx.beginPath();
+    hctx.arc(w/2,h*0.35,22,0,Math.PI*2);hctx.fill(); // head
+    hctx.fillRect(w/2-18,h*0.42,36,h*0.4); // body
+    // Scratches
+    hctx.strokeStyle='rgba(255,255,255,0.06)';hctx.lineWidth=1;
+    for(let i=0;i<12;i++){
+      hctx.beginPath();
+      hctx.moveTo(Math.random()*w,Math.random()*h);
+      hctx.lineTo(Math.random()*w,Math.random()*h);
+      hctx.stroke();
+    }
+    // Vignette
+    const grad=hctx.createRadialGradient(w/2,h/2,h*0.2,w/2,h/2,h*0.8);
+    grad.addColorStop(0,'transparent');grad.addColorStop(1,'rgba(0,0,0,0.8)');
+    hctx.fillStyle=grad;hctx.fillRect(0,0,w,h);
+    // Text — faded Jawi-style
+    hctx.fillStyle='rgba(180,160,120,0.3)';
+    hctx.font='bold 11px monospace';
+    hctx.fillText('dia masih di sini',30,h-30);
+  }
+  else if(type===1){
+    // Close up eye in the dark
+    hctx.fillStyle='#050505';hctx.fillRect(0,0,w,h);
+    const ex=w/2,ey=h/2;
+    // Eyelid shape
+    hctx.fillStyle='#1a1510';
+    hctx.beginPath();
+    hctx.moveTo(ex-60,ey);
+    hctx.quadraticCurveTo(ex,ey-35,ex+60,ey);
+    hctx.quadraticCurveTo(ex,ey+35,ex-60,ey);
+    hctx.fill();
+    // Iris
+    hctx.fillStyle='#2a1a08';
+    hctx.beginPath();hctx.arc(ex,ey,20,0,Math.PI*2);hctx.fill();
+    // Pupil
+    hctx.fillStyle='#000';
+    hctx.beginPath();hctx.arc(ex,ey,9,0,Math.PI*2);hctx.fill();
+    // Reflection
+    hctx.fillStyle='rgba(255,255,240,0.4)';
+    hctx.beginPath();hctx.arc(ex-6,ey-6,4,0,Math.PI*2);hctx.fill();
+    // Blood vessels
+    hctx.strokeStyle='rgba(120,20,20,0.5)';hctx.lineWidth=1;
+    for(let i=0;i<6;i++){
+      const a=i/6*Math.PI*2;
+      hctx.beginPath();
+      hctx.moveTo(ex+Math.cos(a)*21,ey+Math.sin(a)*21);
+      hctx.lineTo(ex+Math.cos(a+0.3)*55,ey+Math.sin(a+0.3)*55);
+      hctx.stroke();
+    }
+    hctx.fillStyle='rgba(180,160,120,0.2)';
+    hctx.font='10px monospace';
+    hctx.fillText('dia tengok kau',w/2-44,h-20);
+  }
+  else if(type===2){
+    // Corridor end — figure standing far
+    hctx.fillStyle='#080c08';hctx.fillRect(0,0,w,h);
+    // Corridor walls perspective
+    hctx.strokeStyle='#1a1f1a';hctx.lineWidth=2;
+    for(let i=0;i<6;i++){
+      const d=i/6;
+      const lw=w*(0.5-d*0.45),rw=w*(0.5+d*0.45);
+      const y=h*(0.3+d*0.4);
+      hctx.beginPath();hctx.moveTo(lw,y);hctx.lineTo(lw,h);hctx.stroke();
+      hctx.beginPath();hctx.moveTo(rw,y);hctx.lineTo(rw,h);hctx.stroke();
+    }
+    // Small figure at end
+    hctx.fillStyle='#c8c8c0';
+    hctx.fillRect(w/2-4,h*0.28,8,20);  // body
+    hctx.beginPath();hctx.arc(w/2,h*0.26,5,0,Math.PI*2);hctx.fill(); // head
+    // Flickering light strip
+    hctx.fillStyle=`rgba(200,220,180,${0.1+Math.random()*0.15})`;
+    hctx.fillRect(w*0.4,0,w*0.2,6);
+    hctx.fillStyle='rgba(180,160,120,0.25)';
+    hctx.font='10px monospace';hctx.fillText('jangan masuk',w/2-38,h-15);
+  }
+  else if(type===3){
+    // Nenek face — extreme close
+    hctx.fillStyle='#0a0806';hctx.fillRect(0,0,w,h);
+    // Wrinkled face rough sketch
+    hctx.fillStyle='#2a2218';
+    hctx.beginPath();hctx.ellipse(w/2,h*0.42,60,75,0,0,Math.PI*2);hctx.fill();
+    // Eyes — milky
+    hctx.fillStyle='#c8c0a8';
+    hctx.beginPath();hctx.ellipse(w/2-20,h*0.35,10,7,0,0,Math.PI*2);hctx.fill();
+    hctx.beginPath();hctx.ellipse(w/2+20,h*0.35,10,7,0,0,Math.PI*2);hctx.fill();
+    // Pupils — off center (looking sideways)
+    hctx.fillStyle='#1a1410';
+    hctx.beginPath();hctx.arc(w/2-16,h*0.355,4,0,Math.PI*2);hctx.fill();
+    hctx.beginPath();hctx.arc(w/2+24,h*0.355,4,0,Math.PI*2);hctx.fill();
+    // Wrinkle lines
+    hctx.strokeStyle='rgba(0,0,0,0.6)';hctx.lineWidth=1.5;
+    [[w/2-40,h*0.32,w/2-15,h*0.34],[w/2+15,h*0.32,w/2+40,h*0.34],
+     [w/2-25,h*0.48,w/2+25,h*0.50],[w/2-30,h*0.55,w/2-5,h*0.52]].forEach(l=>{
+      hctx.beginPath();hctx.moveTo(l[0],l[1]);hctx.lineTo(l[2],l[3]);hctx.stroke();
+    });
+    // Mouth — slightly open
+    hctx.fillStyle='#0a0604';
+    hctx.beginPath();hctx.ellipse(w/2,h*0.60,18,8,0,0,Math.PI*2);hctx.fill();
+    // Heavy vignette
+    const vg=hctx.createRadialGradient(w/2,h/2,40,w/2,h/2,w*0.8);
+    vg.addColorStop(0,'transparent');vg.addColorStop(1,'rgba(0,0,0,0.92)');
+    hctx.fillStyle=vg;hctx.fillRect(0,0,w,h);
+    hctx.fillStyle='rgba(180,150,100,0.2)';
+    hctx.font='9px monospace';hctx.fillText('nenek dah lama tak balik',10,h-15);
+  }
+  // Film grain overlay
+  for(let i=0;i<800;i++){
+    hctx.fillStyle=`rgba(255,255,255,${Math.random()*0.04})`;
+    hctx.fillRect(Math.random()*w,Math.random()*h,1,1);
+  }
+}
+
+function triggerHorror(t){
+  if(horrorActive)return;
+  // Only trigger in scary zones
+  if(cam.z<50)return;
+  horrorActive=true;
+  horrorDuration=0;
+  const type=Math.floor(Math.random()*HORROR_TYPES);
+
+  // Draw the horror canvas
+  drawHorrorFrame(type,t);
+
+  // Flash white
+  flashEl.style.opacity='0.85';
+  setTimeout(()=>{flashEl.style.opacity='0';},80);
+
+  // Show frame
+  hframeEl.style.opacity='1';
+  hframeEl.style.transition='opacity 0.1s';
+
+  setTimeout(()=>{
+    hframeEl.style.transition='opacity 1.2s';
+    hframeEl.style.opacity='0';
+    setTimeout(()=>{horrorActive=false;},1400);
+  }, 180+Math.random()*220);
 }
 
 // ── INPUT ─────────────────────────────────────────────────────────────────────
@@ -578,36 +925,23 @@ window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 
 let lx=null,ly=null;
 const lzone=document.getElementById('look-zone');
-
-lzone.addEventListener('touchstart',e=>{
-  // Only grab first touch, ignore if it hits a button
-  const t=e.touches[0];
-  lx=t.clientX;ly=t.clientY;
-},{passive:true});
-
+lzone.addEventListener('touchstart',e=>{const t=e.touches[0];lx=t.clientX;ly=t.clientY;},{passive:true});
 lzone.addEventListener('touchmove',e=>{
-  e.preventDefault();
-  const t=e.touches[0];
-  if(lx!==null){
-    cam.yaw  -= (t.clientX-lx)*0.003;
-    cam.pitch -= (t.clientY-ly)*0.003;
-    cam.pitch = Math.max(-.9,Math.min(.9,cam.pitch));
-  }
+  e.preventDefault();const t=e.touches[0];
+  if(lx!==null){cam.yaw-=(t.clientX-lx)*.003;cam.pitch-=(t.clientY-ly)*.003;}
+  cam.pitch=Math.max(-.9,Math.min(.9,cam.pitch));
   lx=t.clientX;ly=t.clientY;
 },{passive:false});
-
 lzone.addEventListener('touchend',()=>{lx=null;ly=null;});
 lzone.addEventListener('touchcancel',()=>{lx=null;ly=null;});
 
-// Mouse look (desktop)
 let mouseDown=false;
 lzone.addEventListener('mousedown',e=>{mouseDown=true;lx=e.clientX;ly=e.clientY;});
 window.addEventListener('mouseup',()=>{mouseDown=false;lx=null;ly=null;});
 window.addEventListener('mousemove',e=>{
   if(!mouseDown||lx===null)return;
-  cam.yaw  -= (e.clientX-lx)*0.003;
-  cam.pitch -= (e.clientY-ly)*0.003;
-  cam.pitch = Math.max(-.9,Math.min(.9,cam.pitch));
+  cam.yaw-=(e.clientX-lx)*.003;cam.pitch-=(e.clientY-ly)*.003;
+  cam.pitch=Math.max(-.9,Math.min(.9,cam.pitch));
   lx=e.clientX;ly=e.clientY;
 });
 
@@ -633,50 +967,39 @@ function tickFlicker(dt){
 // ── DRAW ──────────────────────────────────────────────────────────────────────
 function drawMesh(mesh,vp,t){
   gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buf);
-  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);
-  gl.enableVertexAttribArray(LOC.aPos);
-  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);
-  gl.enableVertexAttribArray(LOC.aUV);
+  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);gl.enableVertexAttribArray(LOC.aPos);
+  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);gl.enableVertexAttribArray(LOC.aUV);
   gl.uniformMatrix4fv(LOC.uMVP,false,vp);
   gl.uniform3fv(LOC.uColor,mesh.color);
   gl.uniform1f(LOC.uTile,mesh.tile);
   gl.uniform1i(LOC.uType,mesh.type);
   gl.uniform1i(LOC.uWave,mesh.wave||0);
   gl.uniform1f(LOC.uAlpha,mesh.alpha||1.0);
-  const flk=mesh.flickRate>0
-    ?(mesh._on?(0.9+.1*Math.sin(t*18)):0)
-    :(0.97+.03*Math.sin(t*.5));
+  const flk=mesh.flickRate>0?(mesh._on?(0.9+.1*Math.sin(t*18)):0):(0.97+.03*Math.sin(t*.5));
   gl.uniform1f(LOC.uFlicker,flk);
   gl.drawArrays(gl.TRIANGLES,0,mesh.count);
 }
 
-function drawGhost(vp,t){
-  if(!ghostVisible())return;
-  const ga=ghostAlpha(t);
-  if(ga<=0)return;
-  const gp=ghostPos(t);
-  const dx=cam.x-gp.x,dz=cam.z-gp.z;
+function drawBillboard(buf,vp,type,color,alpha,x,y0,z,w,h,t){
+  const dx=cam.x-x,dz=cam.z-z;
   const angle=Math.atan2(dx,dz);
   const cos=Math.cos(angle),sin=Math.sin(angle);
-  const w=0.6,h=1.9;
-  const x0=gp.x-cos*w,z0=gp.z+sin*w;
-  const x1=gp.x+cos*w,z1=gp.z-sin*w;
+  const x0b=x-cos*w,z0b=z+sin*w;
+  const x1b=x+cos*w,z1b=z-sin*w;
   const data=new Float32Array([
-    x0,0,z0,0,0,  x1,0,z1,1,0,  x1,h,z1,1,1,
-    x1,h,z1,1,1,  x0,h,z0,0,1,  x0,0,z0,0,0,
+    x0b,y0,z0b,0,0, x1b,y0,z1b,1,0, x1b,y0+h,z1b,1,1,
+    x1b,y0+h,z1b,1,1, x0b,y0+h,z0b,0,1, x0b,y0,z0b,0,0,
   ]);
-  gl.bindBuffer(gl.ARRAY_BUFFER,ghostBuf);
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
   gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
-  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);
-  gl.enableVertexAttribArray(LOC.aPos);
-  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);
-  gl.enableVertexAttribArray(LOC.aUV);
+  gl.vertexAttribPointer(LOC.aPos,3,gl.FLOAT,false,20,0);gl.enableVertexAttribArray(LOC.aPos);
+  gl.vertexAttribPointer(LOC.aUV,2,gl.FLOAT,false,20,12);gl.enableVertexAttribArray(LOC.aUV);
   gl.uniformMatrix4fv(LOC.uMVP,false,vp);
-  gl.uniform3fv(LOC.uColor,[0.88,0.94,0.90]);
+  gl.uniform3fv(LOC.uColor,color);
   gl.uniform1f(LOC.uTile,1);
-  gl.uniform1i(LOC.uType,11);
+  gl.uniform1i(LOC.uType,type);
   gl.uniform1i(LOC.uWave,0);
-  gl.uniform1f(LOC.uAlpha,ga);
+  gl.uniform1f(LOC.uAlpha,alpha);
   gl.uniform1f(LOC.uFlicker,1.0);
   gl.drawArrays(gl.TRIANGLES,0,6);
 }
@@ -686,10 +1009,9 @@ let last=0,started=false;
 function loop(ts){
   const dt=Math.min((ts-last)/1000,.05);last=ts;
   const t=ts/1000;
-
-  // Hide loading screen on first frame
   if(!started){started=true;loadEl.style.display='none';}
 
+  // Movement
   const spd=5.5;
   const sy=Math.sin(cam.yaw),cy=Math.cos(cam.yaw);
   const fwd=(mv.f||keys['w']||keys['arrowup'])?1:0;
@@ -699,6 +1021,18 @@ function loop(ts){
   cam.x+=(sy*(fwd-bwd)+cy*(rgt-lft))*spd*dt;
   cam.z+=(cy*(fwd-bwd)-sy*(rgt-lft))*spd*dt;
 
+  // Subtle camera bob
+  const moving=(fwd||bwd||lft||rgt);
+  cam.y=1.72+Math.sin(t*4.5)*0.025*(moving?1:0);
+
+  // Horror timer
+  horrorTimer+=dt;
+  if(horrorTimer>HORROR_INTERVAL&&!horrorActive){
+    horrorTimer=0;
+    triggerHorror(t);
+  }
+
+  updateNenek(t,dt);
   tickFlicker(dt);
   checkZone();
   document.getElementById('hud-coords').textContent=`${cam.x.toFixed(1)} · ${cam.z.toFixed(1)}`;
@@ -712,15 +1046,30 @@ function loop(ts){
   const vp=mul(m4(),proj,view);
   gl.uniform1f(LOC.uTime,t);
 
+  // Opaque pass
   gl.disable(gl.BLEND);
   meshes.filter(m=>!m.transparent).forEach(m=>drawMesh(m,vp,t));
 
+  // Transparent pass
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   meshes.filter(m=>m.transparent).forEach(m=>drawMesh(m,vp,t));
-  drawGhost(vp,t);
-  gl.disable(gl.BLEND);
 
+  // Ghost
+  if(ghostVisible()){
+    const ga=ghostAlpha(t);
+    if(ga>0){
+      const gp=ghostPos(t);
+      drawBillboard(ghostBuf,vp,11,[0.88,0.94,0.90],ga,gp.x,0,gp.z,0.6,1.9,t);
+    }
+  }
+
+  // Nenek
+  if(nenek.alpha>0.01){
+    drawBillboard(nenekBuf,vp,12,C.nkCol,nenek.alpha,nenek.x,0,nenek.z,0.5,1.6,t);
+  }
+
+  gl.disable(gl.BLEND);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
