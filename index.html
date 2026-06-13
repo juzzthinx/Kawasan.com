@@ -37,6 +37,30 @@ body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
 #loading-bar { height:1px; background:#d4c9a8; width:0%; transition:width 0.4s ease; }
 #loading-msg { color:#333; font-size:0.58rem; letter-spacing:0.2em; min-height:1em; }
 
+/* NENEK SILHOUETTE INTRO */
+#nenek-intro {
+  position:fixed; inset:0; background:#000;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column; z-index:195; opacity:0;
+  transition:opacity 0.8s ease;
+  pointer-events:none;
+}
+#nenek-intro.show { opacity:1; pointer-events:all; }
+#nenek-intro canvas { width:100vw; height:100vh; position:absolute; inset:0; }
+#intro-text {
+  position:absolute; bottom:18%;
+  color:rgba(200,50,50,0); font-size:clamp(0.7rem,2vw,1rem);
+  letter-spacing:0.55em; text-align:center; font-family:'Courier New',monospace;
+  transition:color 1.5s ease;
+  text-shadow: 0 0 30px rgba(255,0,0,0.6);
+}
+#intro-text.show { color:rgba(200,50,50,0.85); }
+#intro-skip {
+  position:absolute; bottom:8%;
+  color:rgba(255,255,255,0.15); font-size:0.48rem; letter-spacing:0.4em;
+  cursor:pointer;
+}
+
 /* HUD */
 #hud {
   position:fixed; top:0; left:0; right:0; bottom:0;
@@ -66,6 +90,9 @@ body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
   opacity:0; transition:opacity 0.5s;
 }
 #torch-indicator.on { opacity:1; }
+#torch-indicator.low { color:rgba(255,100,50,0.8); animation: torch-pulse 0.6s infinite alternate; }
+#torch-indicator.dead { color:rgba(100,50,50,0.6); }
+@keyframes torch-pulse { from{opacity:0.5} to{opacity:1} }
 
 /* CROSSHAIR */
 #crosshair {
@@ -79,7 +106,7 @@ body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
 #crosshair::before { width:1px; height:12px; left:50%; top:0; }
 #crosshair::after  { width:12px; height:1px; top:50%; left:0; }
 
-/* DPAD — shifted left */
+/* DPAD */
 #dpad {
   position:fixed; bottom:2.5rem; left:18%;
   transform:translateX(-50%);
@@ -171,6 +198,21 @@ body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
   transition:color 1s ease; text-align:center;
 }
 #nenek-warn.visible { color:rgba(180,100,100,0.6); }
+
+/* NENEK PROXIMITY PULSE */
+#nenek-pulse {
+  position:fixed; inset:0; pointer-events:none; z-index:49;
+  background:radial-gradient(ellipse at center, rgba(120,0,0,0) 40%, rgba(120,0,0,0) 100%);
+  transition:background 0.4s ease;
+}
+#nenek-pulse.near {
+  animation: pulse-red 1.2s infinite;
+}
+@keyframes pulse-red {
+  0%   { background:radial-gradient(ellipse at center, rgba(120,0,0,0) 40%, rgba(100,0,0,0.12) 100%); }
+  50%  { background:radial-gradient(ellipse at center, rgba(120,0,0,0) 30%, rgba(140,0,0,0.28) 100%); }
+  100% { background:radial-gradient(ellipse at center, rgba(120,0,0,0) 40%, rgba(100,0,0,0.12) 100%); }
+}
 </style>
 </head>
 <body>
@@ -188,6 +230,13 @@ body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
   <div id="loading-msg">memuatkan dunia...</div>
 </div>
 
+<!-- NENEK SILHOUETTE INTRO -->
+<div id="nenek-intro">
+  <canvas id="intro-canvas"></canvas>
+  <div id="intro-text">DIA SENTIASA DI SINI</div>
+  <div id="intro-skip">SENTUH UNTUK TERUSKAN</div>
+</div>
+
 <div id="hud">
   <div id="brand">KAWASAN — J.NAZREEN</div>
   <div id="byline">F12 PRODUCTIONS</div>
@@ -199,6 +248,7 @@ body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
 
 <div id="vignette"></div>
 <div id="horror-overlay"></div>
+<div id="nenek-pulse"></div>
 <div id="subtitle"></div>
 <div id="nenek-warn">DIA DENGAR AWAK</div>
 
@@ -241,6 +291,233 @@ try {
   return;
 }
 
+// ─── NENEK INTRO ANIMATION ───────────────────────────────────
+function runNenekIntro(onDone){
+  const introEl   = document.getElementById('nenek-intro');
+  const introC    = document.getElementById('intro-canvas');
+  const introText = document.getElementById('intro-text');
+  const introSkip = document.getElementById('intro-skip');
+  introC.width  = window.innerWidth;
+  introC.height = window.innerHeight;
+  const ic = introC.getContext('2d');
+  let phase = 0; // 0=fade in, 1=walk, 2=fade out
+  let walkX = window.innerWidth * 0.15; // starts from far left
+  let walkT = 0;
+  let fadeAlpha = 0;
+  let done = false;
+  let textShown = false;
+
+  function finish(){
+    if(done) return; done=true;
+    introEl.style.opacity='0';
+    setTimeout(()=>{ introEl.style.display='none'; onDone(); }, 900);
+  }
+
+  introEl.classList.add('show');
+  introSkip.addEventListener('click', finish);
+  introSkip.addEventListener('touchstart', finish);
+
+  function drawFrame(ts){
+    if(done) return;
+    requestAnimationFrame(drawFrame);
+    const W = introC.width, H = introC.height;
+    ic.clearRect(0,0,W,H);
+
+    // Background — deep black with red vignette
+    ic.fillStyle = '#000'; ic.fillRect(0,0,W,H);
+
+    // Distant red city bleed
+    const cityGrad = ic.createRadialGradient(W*0.5, H*0.35, 0, W*0.5, H*0.35, W*0.65);
+    cityGrad.addColorStop(0,'rgba(80,0,0,0.18)');
+    cityGrad.addColorStop(1,'transparent');
+    ic.fillStyle=cityGrad; ic.fillRect(0,0,W,H);
+
+    walkT += 0.016;
+    if(phase===0){ fadeAlpha=Math.min(1,fadeAlpha+0.012); if(fadeAlpha>=1) phase=1; }
+    if(phase===1){
+      walkX += 0.55;
+      if(walkX > W*0.88){ phase=2; }
+      if(!textShown && walkX > W*0.35){ textShown=true; introText.classList.add('show'); }
+    }
+    if(phase===2){
+      fadeAlpha=Math.max(0,fadeAlpha-0.018);
+      if(fadeAlpha<=0) finish();
+    }
+
+    ic.globalAlpha = fadeAlpha;
+
+    // PPR building silhouettes — background
+    const blds=[
+      {x:0,    w:W*0.18,h:H*0.55},{x:W*0.16,w:W*0.12,h:H*0.62},
+      {x:W*0.7,w:W*0.16,h:H*0.58},{x:W*0.84,w:W*0.18,h:H*0.5},
+      {x:W*0.3,w:W*0.08,h:H*0.45},{x:W*0.6,w:W*0.09,h:H*0.48},
+    ];
+    blds.forEach(b=>{
+      ic.fillStyle='rgba(8,0,0,0.95)';
+      ic.fillRect(b.x,H-b.h,b.w,b.h);
+      // Window grid — occasional dim red
+      for(let wy=H-b.h+8;wy<H-12;wy+=14){
+        for(let wx=b.x+6;wx<b.x+b.w-6;wx+=10){
+          if(Math.random()>0.85) ic.fillStyle='rgba(120,20,0,0.25)';
+          else ic.fillStyle='rgba(20,5,5,0.6)';
+          ic.fillRect(wx,wy,5,7);
+        }
+      }
+    });
+
+    // Ground
+    ic.fillStyle='rgba(12,0,0,0.9)';
+    ic.fillRect(0,H*0.72,W,H*0.28);
+    // Longkang edge
+    ic.strokeStyle='rgba(40,10,10,0.6)'; ic.lineWidth=2;
+    ic.beginPath(); ic.moveTo(0,H*0.72); ic.lineTo(W,H*0.72); ic.stroke();
+
+    // Ground puddle reflection
+    const pudW = W*0.3;
+    const pudX = walkX - pudW*0.5;
+    const pudGrad = ic.createRadialGradient(walkX,H*0.74,0,walkX,H*0.74,pudW*0.5);
+    pudGrad.addColorStop(0,'rgba(80,0,0,0.15)');
+    pudGrad.addColorStop(1,'transparent');
+    ic.fillStyle=pudGrad; ic.fillRect(pudX,H*0.72,pudW,H*0.12);
+
+    // ── NENEK SILHOUETTE ──
+    const GH = H * 0.32; // figure height
+    const GY = H * 0.72 - GH * 0.88; // feet at ground
+    const step = Math.sin(walkT * 2.4) * 0.025 * GH;
+
+    ic.save();
+    ic.translate(walkX, GY + step);
+
+    // Red glow aura behind her
+    const aura = ic.createRadialGradient(0, GH*0.45, 0, 0, GH*0.45, GH*0.75);
+    aura.addColorStop(0,'rgba(180,0,0,0.22)');
+    aura.addColorStop(0.5,'rgba(120,0,0,0.10)');
+    aura.addColorStop(1,'transparent');
+    ic.fillStyle=aura; ic.fillRect(-GH*0.8,-GH*0.1,GH*1.6,GH*1.2);
+
+    // Body — hunched old woman
+    ic.fillStyle='rgba(0,0,0,1)';
+
+    // Legs — walking animation
+    const legSwing = Math.sin(walkT*2.4)*0.12*GH;
+    // Left leg
+    ic.save();
+    ic.translate(-GH*0.07, GH*0.72);
+    ic.rotate(legSwing*0.06);
+    ic.fillRect(-GH*0.055, 0, GH*0.11, GH*0.28);
+    // Foot
+    ic.fillRect(-GH*0.055, GH*0.26, GH*0.14, GH*0.055);
+    ic.restore();
+    // Right leg
+    ic.save();
+    ic.translate(GH*0.07, GH*0.72);
+    ic.rotate(-legSwing*0.06);
+    ic.fillRect(-GH*0.055, 0, GH*0.11, GH*0.28);
+    ic.fillRect(-GH*0.14, GH*0.26, GH*0.14, GH*0.055);
+    ic.restore();
+
+    // Baju kurung / kebaya body — flowing
+    ic.beginPath();
+    ic.moveTo(-GH*0.22, GH*0.32);
+    ic.lineTo(-GH*0.19, GH*0.48);
+    ic.lineTo(-GH*0.16, GH*0.73);
+    ic.lineTo( GH*0.16, GH*0.73);
+    ic.lineTo( GH*0.19, GH*0.48);
+    ic.lineTo( GH*0.22, GH*0.32);
+    ic.lineTo( GH*0.14, GH*0.28);
+    ic.lineTo(-GH*0.14, GH*0.28);
+    ic.closePath();
+    ic.fill();
+
+    // Hunched back / upper torso
+    ic.beginPath();
+    ic.ellipse(-GH*0.03, GH*0.24, GH*0.145, GH*0.11, -0.22, 0, Math.PI*2);
+    ic.fill();
+
+    // Head — tilted down (looking at ground)
+    ic.beginPath();
+    ic.ellipse(-GH*0.07, GH*0.12, GH*0.095, GH*0.105, 0.18, 0, Math.PI*2);
+    ic.fill();
+
+    // White hair — stringy, long
+    ic.strokeStyle='rgba(220,215,195,0.55)';
+    ic.lineWidth=1;
+    for(let h=0;h<14;h++){
+      const hx = -GH*0.13 + (Math.random()-0.5)*GH*0.18;
+      const hy = GH*0.08;
+      ic.beginPath();
+      ic.moveTo(hx, hy);
+      ic.quadraticCurveTo(hx+(Math.random()-0.5)*GH*0.1, hy+GH*0.12, hx+(Math.random()-0.5)*GH*0.08, hy+GH*0.22);
+      ic.stroke();
+    }
+
+    // Reaching arm
+    const armSwing = Math.sin(walkT*2.4+1.2)*0.08*GH;
+    ic.fillStyle='rgba(0,0,0,1)';
+    ic.save();
+    ic.translate(GH*0.14, GH*0.3);
+    ic.rotate(0.35 + armSwing*0.04);
+    ic.fillRect(-GH*0.04, 0, GH*0.07, GH*0.35);
+    // Long fingers
+    for(let f=0;f<4;f++){
+      ic.fillRect(-GH*0.045+f*GH*0.025, GH*0.33, GH*0.018, GH*0.10);
+    }
+    ic.restore();
+    // Other arm — walking swing
+    ic.save();
+    ic.translate(-GH*0.16, GH*0.30);
+    ic.rotate(-0.2 - armSwing*0.04);
+    ic.fillRect(-GH*0.03, 0, GH*0.065, GH*0.28);
+    ic.restore();
+
+    // Eyes — amber glow (visible in silhouette because supernatural)
+    const eyeGlow1 = ic.createRadialGradient(-GH*0.09, GH*0.115, 0, -GH*0.09, GH*0.115, GH*0.045);
+    eyeGlow1.addColorStop(0,'rgba(255,160,30,0.95)');
+    eyeGlow1.addColorStop(0.4,'rgba(200,80,0,0.5)');
+    eyeGlow1.addColorStop(1,'transparent');
+    ic.fillStyle=eyeGlow1; ic.fillRect(-GH*0.14,GH*0.07,GH*0.1,GH*0.09);
+
+    const eyeGlow2 = ic.createRadialGradient(-GH*0.04, GH*0.115, 0, -GH*0.04, GH*0.115, GH*0.04);
+    eyeGlow2.addColorStop(0,'rgba(255,160,30,0.9)');
+    eyeGlow2.addColorStop(0.4,'rgba(200,80,0,0.4)');
+    eyeGlow2.addColorStop(1,'transparent');
+    ic.fillStyle=eyeGlow2; ic.fillRect(-GH*0.09,GH*0.07,GH*0.1,GH*0.09);
+
+    // Red/white flicker highlight — occasional
+    if(Math.sin(walkT*7.3)>0.85){
+      ic.fillStyle='rgba(255,50,50,0.08)';
+      ic.fillRect(-GH*0.25,-GH*0.05,GH*0.5,GH*1.1);
+    }
+
+    ic.restore();
+
+    // Red scanlines
+    ic.fillStyle='rgba(60,0,0,0.09)';
+    for(let sl=0;sl<H;sl+=4) ic.fillRect(0,sl,W,2);
+
+    // White outline flicker on her — horror effect
+    if(Math.sin(walkT*11)>0.92){
+      ic.save();
+      ic.translate(walkX, GY + step);
+      ic.strokeStyle='rgba(255,255,255,0.18)';
+      ic.lineWidth=1.5;
+      ic.beginPath();
+      ic.ellipse(-GH*0.07, GH*0.12, GH*0.098, GH*0.108, 0.18, 0, Math.PI*2);
+      ic.stroke();
+      ic.restore();
+    }
+
+    // Vignette
+    const vig = ic.createRadialGradient(W*0.5,H*0.5,W*0.08,W*0.5,H*0.5,W*0.78);
+    vig.addColorStop(0,'transparent');
+    vig.addColorStop(1,'rgba(0,0,0,0.95)');
+    ic.fillStyle=vig; ic.fillRect(0,0,W,H);
+
+    ic.globalAlpha=1;
+  }
+  requestAnimationFrame(drawFrame);
+}
+
 // ─── RENDERER ────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -248,11 +525,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;   // brighter overall
+renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0d0d14);
-scene.fog = new THREE.FogExp2(0x0d0d14, 0.012); // lighter fog = more visible
+scene.fog = new THREE.FogExp2(0x0d0d14, 0.012);
 
 const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 400);
 camera.position.set(0, 1.7, 0);
@@ -274,11 +551,18 @@ const M = {
   shopfront: new THREE.MeshLambertMaterial({ color:0x111116 }),
   ceiling:   new THREE.MeshLambertMaterial({ color:0x0e0e12 }),
   pole:      new THREE.MeshLambertMaterial({ color:0x282830 }),
-  alley:     new THREE.MeshLambertMaterial({ color:0x141418 }),
-  alley_b:   new THREE.MeshLambertMaterial({ color:0x100e14 }),
+  // Alley upgrades
+  alley:     new THREE.MeshLambertMaterial({ color:0x0e0e12 }),
+  alley_b:   new THREE.MeshLambertMaterial({ color:0x090810 }),
+  alley_wet: new THREE.MeshStandardMaterial({ color:0x08080e, roughness:0.08, metalness:0.85 }),
+  alley_wall_a: new THREE.MeshLambertMaterial({ color:0x0d0c10 }),
+  alley_wall_b: new THREE.MeshLambertMaterial({ color:0x0b0a0e }),
+  alley_moss:   new THREE.MeshLambertMaterial({ color:0x0a120a }),
+  alley_stain:  new THREE.MeshLambertMaterial({ color:0x120e0e }),
   ground_a:  new THREE.MeshLambertMaterial({ color:0x151518 }),
   concrete:  new THREE.MeshLambertMaterial({ color:0x1c1c22 }),
   rust:      new THREE.MeshLambertMaterial({ color:0x2a1a10 }),
+  rust_dark: new THREE.MeshLambertMaterial({ color:0x1a0e08 }),
   neon_r:    new THREE.MeshStandardMaterial({ color:0xff3333, emissive:0xff1111, emissiveIntensity:2.0 }),
   neon_g:    new THREE.MeshStandardMaterial({ color:0x00ff88, emissive:0x00ee66, emissiveIntensity:1.8 }),
   neon_b:    new THREE.MeshStandardMaterial({ color:0x44aaff, emissive:0x2288ff, emissiveIntensity:1.8 }),
@@ -298,6 +582,9 @@ const M = {
   distant:   new THREE.MeshLambertMaterial({ color:0x0e0e14 }),
   wire:      new THREE.LineBasicMaterial({ color:0x1e1e22 }),
   drain:     new THREE.MeshLambertMaterial({ color:0x111114 }),
+  crate:     new THREE.MeshLambertMaterial({ color:0x1a1408 }),
+  pipe:      new THREE.MeshLambertMaterial({ color:0x1e1e20 }),
+  puddle:    new THREE.MeshStandardMaterial({ color:0x05050c, roughness:0.02, metalness:0.95, transparent:true, opacity:0.85 }),
 };
 
 const world = new THREE.Group();
@@ -315,29 +602,31 @@ function cyl(r,h,mat,x,y,z,segs){
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segs||8), mat);
   m.position.set(x,y,z); m.castShadow=true; world.add(m); return m;
 }
+function plane(w,d,mat,x,y,z,rx){
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w,d), mat);
+  m.position.set(x,y,z);
+  m.rotation.x = rx!==undefined ? rx : -Math.PI/2;
+  m.receiveShadow=true;
+  world.add(m); return m;
+}
 
 // ─── SCENE LIGHTS ─────────────────────────────────────────────
-// Brighter ambient — city glow, not pitch black
 scene.add(new THREE.AmbientLight(0x2a2a40, 1.4));
-// Moon — cool blue-white directional
 const moon = new THREE.DirectionalLight(0x8899cc, 0.6);
 moon.position.set(40,80,-60);
 moon.castShadow = true;
 scene.add(moon);
-// Orange city-haze fill from above (like KL smog glow)
 const cityGlow = new THREE.HemisphereLight(0x3a2a10, 0x050508, 0.5);
 scene.add(cityGlow);
 
 // ─── GROUND ───────────────────────────────────────────────────
 setLoad(8,'membina laluan...');
 box(300,0.1,300, M.road, 0,-0.05,0);
-
-// Painted road lines
 for(let i=-5;i<=5;i++){
   box(0.12,0.02,2.5, new THREE.MeshLambertMaterial({color:0x555560}), 0,-0.02,i*6);
 }
 
-// ─── DRAINAGE LONGKANG (open drain both sides of road) ────────
+// ─── DRAINAGE ─────────────────────────────────────────────────
 for(let z=-120;z<80;z+=8){
   box(0.8,0.35,7.8, M.drain, -5.5,-0.17,z+4);
   box(0.8,0.35,7.8, M.drain,  5.5,-0.17,z+4);
@@ -347,102 +636,176 @@ const STREET_W = 10;
 const BLOCK = 42;
 const BLOCKS = 7;
 
-// Sidewalks
 for(let i=0;i<BLOCKS;i++){
   const z = (i-BLOCKS*0.5)*BLOCK + BLOCK*0.5;
   box(2.2,0.15,BLOCK, M.sidewalk, -(STREET_W*0.5+1.1), 0.075, z);
   box(2.2,0.15,BLOCK, M.sidewalk,  (STREET_W*0.5+1.1), 0.075, z);
 }
 
-// ─── SHOPHOUSES — proper KL 5-foot-way prewar ─────────────────
+// ─── SHOPHOUSES ───────────────────────────────────────────────
 setLoad(18,'membina kedai...');
 function shophouse(cx, cz, side, wallMat, accentMat){
-  const s = side; // -1 left, 1 right
+  const s = side;
   const ox = s*(STREET_W*0.5 + 2.2 + 6.5);
-
-  // Ground floor body
   box(13,4.2,BLOCK*0.48, wallMat, ox, 2.1, cz);
-  // Upper floor
   box(13,3.8,BLOCK*0.48, accentMat||wallMat, ox, 6.0, cz);
-  // Roofline parapet
   box(13.4,0.5,BLOCK*0.48+0.4, M.concrete, ox, 8.05, cz);
-  // 5-foot-way ceiling slab
   box(3.5,0.2,BLOCK*0.48, M.ceiling, ox-s*5.25, 3.4, cz);
-  // 5-foot-way columns
   const numCols = Math.floor(BLOCK*0.48/4);
   for(let c=0;c<numCols;c++){
     const colz = cz - BLOCK*0.24 + c*4 + 2;
     cyl(0.14,3.4, M.pole, ox-s*5.25, 1.7, colz, 6);
   }
-  // Shopfront recesses (ground floor)
   box(4,2.6,0.3, M.shopfront, ox, 1.3, cz - s*BLOCK*0.24 - 0.02);
-  // Upper windows
   for(let w=0;w<3;w++){
     const wz = cz + (w-1)*4;
     box(2.2,1.6,0.12, M.glass, ox, 5.8, wz - s*BLOCK*0.24 - 0.06);
-    // Window frame
     box(2.4,0.1,0.13, M.concrete, ox, 5.0, wz - s*BLOCK*0.24 - 0.06);
     box(2.4,0.1,0.13, M.concrete, ox, 6.6, wz - s*BLOCK*0.24 - 0.06);
   }
-  // AC units on upper floor (detail)
   box(0.9,0.6,0.7, M.concrete, ox + (Math.random()-0.5)*3, 5.2, cz + 2);
-  // Old signboard slot
   box(5,0.8,0.12, wallMat, ox, 3.6, cz - s*BLOCK*0.24);
 }
 
 const wallMats = [M.wall_a, M.wall_b, M.wall_c];
 for(let i=0;i<BLOCKS;i++){
   const cz = (i-BLOCKS*0.5)*BLOCK + BLOCK*0.5;
-  const mL = wallMats[i%3];
-  const mR = wallMats[(i+1)%3];
-  const aL = wallMats[(i+2)%3];
-  const aR = wallMats[i%3];
+  const mL = wallMats[i%3]; const mR = wallMats[(i+1)%3];
+  const aL = wallMats[(i+2)%3]; const aR = wallMats[i%3];
   shophouse(0, cz, -1, mL, aL);
   shophouse(0, cz,  1, mR, aR);
 }
 
-// ─── BACK ALLEY SYSTEM ────────────────────────────────────────
+// ─── UPGRADED BACK ALLEY SYSTEM ───────────────────────────────
 setLoad(28,'membina lorong gelap...');
-// KL-style: narrow 3m alleys behind shophouses, walls close in
-function backAlley(side, startZ, length){
-  const ox = side*(STREET_W*0.5 + 2.2 + 14);
-  // Alley floor — cracked, stained
-  box(3.5, 0.1, length, M.alley_b, ox, -0.02, startZ);
-  // Back wall of shophouses (other side)
-  box(0.4, 9, length+2, M.alley, ox - side*1.75, 4.5, startZ);
-  // Opposite alley wall (back of next block)
-  box(0.4, 7, length+2, M.alley_b, ox + side*1.75, 3.5, startZ);
 
-  // Clutter: bins, crates, pipes
-  const numItems = Math.floor(length/10);
-  for(let n=0;n<numItems;n++){
-    const iz = startZ - length*0.5 + n*(length/numItems) + Math.random()*4;
-    const iy = 0.2 + Math.random()*0.3;
-    // Trash bin
-    box(0.5,0.8,0.5, M.rust, ox + (Math.random()-0.5)*1.5, iy, iz);
-    // Pipe along wall
-    cyl(0.06, 2.5, M.pole, ox - side*1.5, 2.5, iz, 5);
+function backAlleyUpgraded(side, startZ, length){
+  const ox = side*(STREET_W*0.5 + 2.2 + 14);
+  const halfL = length*0.5;
+
+  // Floor — dark cracked concrete with subtle wet sheen
+  plane(3.5, length, M.alley_wet, ox, 0.005, startZ);
+
+  // Concrete floor underneath (receive shadows)
+  box(3.5, 0.1, length, M.alley_b, ox, -0.05, startZ);
+
+  // Left wall (shophouse back)
+  box(0.5, 10, length+2, M.alley_wall_a, ox - side*1.75, 5, startZ);
+  // Right wall (opposite building)
+  box(0.5, 8, length+2, M.alley_wall_b, ox + side*1.75, 4, startZ);
+
+  // Wall texture details — horizontal crack strips
+  const numStrips = Math.floor(length/12);
+  for(let n=0;n<numStrips;n++){
+    const sz = startZ - halfL + n*(length/numStrips);
+    // Stain patch on wall
+    box(0.08, 0.6+Math.random()*1.2, 2+Math.random()*4, M.alley_stain,
+      ox - side*1.5, 0.8+Math.random()*2.5, sz);
+    // Moss patch lower wall
+    if(Math.random()>0.5){
+      box(0.06, 0.4+Math.random()*0.8, 1+Math.random()*2.5, M.alley_moss,
+        ox - side*1.68, 0.2+Math.random()*0.6, sz+Math.random()*3);
+    }
   }
-  // Puddle (dark plane, slightly reflective)
-  const pudMat = new THREE.MeshStandardMaterial({color:0x0a0a10,roughness:0.05,metalness:0.9,transparent:true,opacity:0.7});
-  const pud = new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.2), pudMat);
-  pud.rotation.x = -Math.PI/2;
-  pud.position.set(ox, 0.01, startZ + (Math.random()-0.5)*length*0.5);
-  world.add(pud);
+
+  // Pipes along back wall — vertical and horizontal runs
+  const numPipes = 4 + Math.floor(length/18);
+  for(let p=0;p<numPipes;p++){
+    const pz = startZ - halfL + p*(length/numPipes) + Math.random()*6;
+    const ph = 3 + Math.random()*4;
+    cyl(0.04, ph, M.pipe, ox - side*1.55, ph*0.5, pz, 6);
+    // Horizontal connector
+    if(Math.random()>0.5){
+      box(0.06, 0.06, 0.8+Math.random()*1.5, M.pipe,
+        ox - side*1.45, 1.2+Math.random()*2, pz);
+    }
+    // Pipe drip stain below
+    box(0.07, 0.5+Math.random()*1, 0.07, M.alley_stain,
+      ox - side*1.55, 0.25, pz);
+  }
+
+  // Bins, crates, debris clusters
+  const numItems = Math.floor(length/8);
+  for(let n=0;n<numItems;n++){
+    const iz = startZ - halfL + n*(length/numItems) + Math.random()*5;
+    const side2 = Math.random()>0.5 ? -1 : 1;
+    const bx = ox + side2*(0.5+Math.random()*0.7);
+
+    // Trash bin (cylinder)
+    const binH = 0.7+Math.random()*0.3;
+    cyl(0.18, binH, M.rust_dark, bx, binH*0.5, iz, 8);
+    // Bin lid
+    box(0.44,0.06,0.44, M.rust, bx, binH+0.03, iz);
+
+    // Crate stack
+    if(Math.random()>0.55){
+      const cH = 0.35+Math.random()*0.25;
+      box(0.6,cH,0.6, M.crate, bx+(Math.random()-0.5)*0.6, cH*0.5, iz+Math.random()*1.5);
+      if(Math.random()>0.5)
+        box(0.5,cH,0.5, M.crate, bx+(Math.random()-0.5)*0.5, cH*1.5, iz+Math.random()*1.5);
+    }
+
+    // Soggy cardboard on ground
+    if(Math.random()>0.6){
+      box(0.8+Math.random()*0.5, 0.04, 0.5+Math.random()*0.5, M.alley_stain,
+        ox+(Math.random()-0.5)*2, 0.02, iz+Math.random()*2);
+    }
+  }
+
+  // Puddles — more of them, varied sizes, full wet sheen
+  const numPuddles = 5 + Math.floor(length/14);
+  for(let p=0;p<numPuddles;p++){
+    const pz = startZ - halfL + Math.random()*length;
+    const pw = 0.5+Math.random()*1.4;
+    const pd = 0.3+Math.random()*0.9;
+    const pudMat = new THREE.MeshStandardMaterial({
+      color:0x05050c, roughness:0.02, metalness:0.95, transparent:true, opacity:0.9
+    });
+    const pud = new THREE.Mesh(new THREE.PlaneGeometry(pw,pd), pudMat);
+    pud.rotation.x = -Math.PI/2;
+    pud.position.set(ox+(Math.random()-0.5)*2, 0.012, pz);
+    world.add(pud);
+  }
+
+  // Overhead pipes / beams crossing alley
+  const numBeams = Math.floor(length/20);
+  for(let b=0;b<numBeams;b++){
+    const bz = startZ - halfL + b*(length/numBeams) + 8;
+    box(4, 0.08, 0.08, M.pipe, ox, 4.5+Math.random()*1.5, bz);
+    // Hanging wire from beam
+    box(0.02, 1.2+Math.random()*0.8, 0.02, M.pipe, ox+(Math.random()-0.5)*1.2, 3.8, bz);
+  }
+
+  // Alley dim red-tinted lights — sparse, moody
+  const numAlleyLights = Math.floor(length/35);
+  for(let l=0;l<numAlleyLights;l++){
+    const lz = startZ - halfL + (l+0.5)*(length/numAlleyLights);
+    const al = new THREE.PointLight(0x552200, 0.35, 8, 2);
+    al.position.set(ox, 3.8, lz);
+    scene.add(al);
+    lampLights.push({light:al, base:0.35, phase:Math.random()*Math.PI*2, neon:true});
+    // Small lamp housing
+    box(0.2,0.12,0.2, M.rust_dark, ox, 4.0, lz);
+  }
+
+  // Graffiti-style dark patches on wall (flat boxes)
+  for(let g=0;g<Math.floor(length/16);g++){
+    const gz = startZ - halfL + Math.random()*length;
+    box(0.04, 0.4+Math.random()*0.9, 0.8+Math.random()*1.8, M.alley_stain,
+      ox - side*1.72, 0.7+Math.random()*2, gz);
+  }
 }
 
-backAlley(-1, -60, BLOCKS*BLOCK*0.85);
-backAlley( 1, -40, BLOCKS*BLOCK*0.85);
+const lampLights = [];
+backAlleyUpgraded(-1, -60, BLOCKS*BLOCK*0.85);
+backAlleyUpgraded( 1, -40, BLOCKS*BLOCK*0.85);
 
-// ─── CROSS ALLEYS (perpendicular — connects main st to back) ──
+// ─── CROSS ALLEYS ─────────────────────────────────────────────
 for(let i=1;i<BLOCKS;i++){
   const z = (i - BLOCKS*0.5)*BLOCK;
-  // Alley floor
   box(32, 0.1, 5.5, M.alley, 0, -0.03, z);
-  // Side walls
   box(0.3, 6, 32, M.alley_b, -20, 3, z);
   box(0.3, 6, 32, M.alley_b,  20, 3, z);
-  // Ceiling gap with wires
   box(32, 0.2, 0.3, M.ceiling, 0, 5.8, z);
 }
 
@@ -460,7 +823,6 @@ for(let i=0;i<28;i++){
 
 // ─── LAMP POSTS ───────────────────────────────────────────────
 setLoad(42,'menyalakan lampu...');
-const lampLights = [];
 
 for(let i=-BLOCKS*0.5;i<=BLOCKS*0.5;i++){
   const z = i*BLOCK*0.5;
@@ -476,7 +838,7 @@ for(let i=-BLOCKS*0.5;i<=BLOCKS*0.5;i++){
   });
 }
 
-// ─── NEON SIGNS — KL Mamak/Kedai era ─────────────────────────
+// ─── NEON SIGNS ───────────────────────────────────────────────
 setLoad(50,'menghidupkan papan neon...');
 const neons = [
   {mat:M.neon_r,  x:-22, y:4.8, z:-80, w:3.2, h:0.7},
@@ -496,7 +858,7 @@ neons.forEach((n,idx)=>{
   lampLights.push({light:gl, mesh:sign, base:0.7, phase:idx*0.7+1.3, neon:true});
 });
 
-// ─── DISTANT KL SKYLINE ───────────────────────────────────────
+// ─── DISTANT SKYLINE ──────────────────────────────────────────
 setLoad(58,'membina skyline...');
 [
   {x:-90,z:-150,w:10,d:10,h:90},{x:-78,z:-140,w:10,d:10,h:90},
@@ -505,17 +867,14 @@ setLoad(58,'membina skyline...');
   {x: 98,z:-155,w:11,d:11,h:80},{x:-50,z:-160,w:6,d:6,h:40},
 ].forEach(b=>{
   box(b.w,b.h,b.d, M.distant, b.x, b.h*0.5, b.z);
-  // Window glows
   if(Math.random()>0.4){
     const wl=new THREE.PointLight(0x4466aa,0.2,50,2);
     wl.position.set(b.x,b.h*0.75,b.z);
     scene.add(wl);
   }
 });
-// KLCC twin spires
 box(3,25,3, M.distant, -90,102,-150);
 box(3,25,3, M.distant, -78,102,-140);
-// Antenna light (blinking red — handled in loop)
 const antennaLight = new THREE.PointLight(0xff2200,0.6,20,2);
 antennaLight.position.set(-84,130,-145);
 scene.add(antennaLight);
@@ -535,20 +894,17 @@ function makeCloud(x,y,z,sc){
     p.position.set((Math.random()-0.5)*sc*2.5,(Math.random()-0.5)*sc*0.5,(Math.random()-0.5)*sc*1.5);
     g.add(p);
   }
-  g.position.set(x,y,z);
-  cloudGroup.add(g);
-  return g;
+  g.position.set(x,y,z); cloudGroup.add(g); return g;
 }
 for(let i=0;i<20;i++){
   const c=makeCloud((Math.random()-0.5)*350,38+Math.random()*35,(Math.random()-0.5)*350,5+Math.random()*9);
   clouds.push({mesh:c,speed:0.25+Math.random()*0.5});
 }
 
-// ─── AVATAR (Malay guy) ───────────────────────────────────────
+// ─── AVATAR ───────────────────────────────────────────────────
 setLoad(72,'mencipta watak...');
 const avatarGroup = new THREE.Group();
 scene.add(avatarGroup);
-
 function avB(w,h,d,mat,x,y,z){
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
   m.position.set(x,y,z); m.castShadow=true;
@@ -567,13 +923,17 @@ const legL=avB(0.16,0.48,0.16,M.pants,-0.11,0.12,0);
 const legR=avB(0.16,0.48,0.16,M.pants, 0.11,0.12,0);
 avB(0.14,0.18,0.22, M.shoes,-0.11,-0.15,0.03);
 avB(0.14,0.18,0.22, M.shoes, 0.11,-0.15,0.03);
-
-// Torchlight attached to avatar (held forward)
 const torchMesh = avB(0.06,0.06,0.18, M.torch, 0.28,0.75,0.12);
-const torchLight = new THREE.SpotLight(0xffe8a0, 0, 18, Math.PI/7, 0.4, 1.5);
+
+// Torch — much brighter, wider beam
+const torchLight = new THREE.SpotLight(0xffe8a0, 0, 35, Math.PI/5.5, 0.28, 1.2);
 torchLight.castShadow = false;
 scene.add(torchLight);
 scene.add(torchLight.target);
+
+// Secondary fill light for torch (wider, softer)
+const torchFill = new THREE.PointLight(0xffd080, 0, 12, 2);
+scene.add(torchFill);
 
 avatarGroup.visible = true;
 
@@ -588,30 +948,44 @@ function nenB(w,h,d,mat,x,y,z){
   m.position.set(x,y,z); m.castShadow=true;
   nenekGroup.add(m); return m;
 }
+// Body — hunched (rotation.x set below)
 nenB(0.38,0.45,0.20, M.n_baju,  0,0.82,0);
 nenB(0.34,0.45,0.18, M.n_baju,  0,0.32,0);
 nenB(0.26,0.28,0.24, M.n_skin,  0,1.26,0.06);
 nenB(0.28,0.18,0.26, M.n_hair,  0,1.40,-0.02);
-nenB(0.10,0.65,0.10, M.n_baju, -0.26,0.68,0.06);
-nenB(0.10,0.65,0.10, M.n_baju,  0.26,0.68,0.06);
+nenB(0.31,0.18,0.08, M.n_hair,  0,1.32,-0.18); // hair falling forward
+
+// Legs — separated for walk animation
+const nenLegL = nenB(0.14,0.46,0.14, M.n_baju, -0.10,0.08,0);
+const nenLegR = nenB(0.14,0.46,0.14, M.n_baju,  0.10,0.08,0);
+// Arms
+const nenArmL = nenB(0.10,0.65,0.10, M.n_baju, -0.26,0.68,0.06);
+const nenArmR = nenB(0.10,0.65,0.10, M.n_baju,  0.26,0.68,0.06);
 nenB(0.09,0.22,0.08, M.n_skin, -0.26,0.32,0.06);
 nenB(0.09,0.22,0.08, M.n_skin,  0.26,0.32,0.06);
-nenB(0.14,0.46,0.14, M.n_baju, -0.10,0.08,0);
-nenB(0.14,0.46,0.14, M.n_baju,  0.10,0.08,0);
+// Feet
+nenB(0.12,0.12,0.18, M.n_baju, -0.10,-0.16,0.04);
+nenB(0.12,0.12,0.18, M.n_baju,  0.10,-0.16,0.04);
+
 // Eye glow
-const eyeMatL=new THREE.MeshStandardMaterial({emissive:0xffaa00,emissiveIntensity:3,color:0x000000});
-const eyeMatR=new THREE.MeshStandardMaterial({emissive:0xffaa00,emissiveIntensity:3,color:0x000000});
-const eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,4),eyeMatL);
-const eyeR=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,4),eyeMatR);
-eyeL.position.set(-0.07,1.26,0.13);
-eyeR.position.set( 0.07,1.26,0.13);
+const eyeMatL=new THREE.MeshStandardMaterial({emissive:0xffaa00,emissiveIntensity:4,color:0x000000});
+const eyeMatR=new THREE.MeshStandardMaterial({emissive:0xffaa00,emissiveIntensity:4,color:0x000000});
+const eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.030,6,4),eyeMatL);
+const eyeR=new THREE.Mesh(new THREE.SphereGeometry(0.030,6,4),eyeMatR);
+eyeL.position.set(-0.07,1.26,0.14);
+eyeR.position.set( 0.07,1.26,0.14);
 nenekGroup.add(eyeL); nenekGroup.add(eyeR);
+
+// Nenek glow light (amber, close range)
+const nenekGlow = new THREE.PointLight(0xff6600, 0.0, 5, 2);
+nenekGroup.add(nenekGlow);
+nenekGlow.position.set(0, 1.3, 0.2);
+
 nenekGroup.rotation.x = 0.18;
 nenekGroup.position.set(999,0,999);
 
 // ─── INPUT ────────────────────────────────────────────────────
 const keys={forward:false,back:false,left:false,right:false,sprint:false};
-
 document.addEventListener('keydown',e=>{
   if(e.key==='ArrowUp'   ||e.key==='w'||e.key==='W') keys.forward=true;
   if(e.key==='ArrowDown' ||e.key==='s'||e.key==='S') keys.back=true;
@@ -638,7 +1012,6 @@ document.querySelectorAll('#dpad button[data-dir]').forEach(btn=>{
   btn.addEventListener('mouseup',off);
 });
 
-// Mouse look
 let yaw=0, pitch=0, locked=false;
 canvas.addEventListener('click',()=>canvas.requestPointerLock());
 document.addEventListener('pointerlockchange',()=>locked=document.pointerLockElement===canvas);
@@ -649,7 +1022,6 @@ document.addEventListener('mousemove',e=>{
   pitch  = Math.max(-0.55,Math.min(0.55,pitch));
 });
 
-// Touch look — right half
 let tx0=0,ty0=0;
 canvas.addEventListener('touchstart',e=>{ const t=e.touches[0]; if(t.clientX>window.innerWidth*0.4){tx0=t.clientX;ty0=t.clientY;} },{passive:true});
 canvas.addEventListener('touchmove',e=>{
@@ -661,16 +1033,6 @@ canvas.addEventListener('touchmove',e=>{
     tx0=t.clientX; ty0=t.clientY;
   }
 },{passive:true});
-
-// ─── COLLISION BOUNDS ─────────────────────────────────────────
-// Simple AABB walls: |x| < 3.5 = road, |x| > shopwall = blocked
-const wallBounds=[
-  {minX:-6, maxX:6, minZ:-999,maxZ:999},  // road corridor OK
-  // left alley
-  {minX:-21, maxX:-17, minZ:-999,maxZ:999},
-  // right alley
-  {minX:17, maxX:21, minZ:-999,maxZ:999},
-];
 
 // ─── PLAYER MOVEMENT ──────────────────────────────────────────
 const playerPos=new THREE.Vector3(0,1.7,0);
@@ -690,13 +1052,8 @@ function updatePlayer(dt){
   if(move.length()>0){
     move.normalize().multiplyScalar(speed*dt);
     const np = playerPos.clone().add(move);
-    // simple wall stop
     np.x = Math.max(-22, Math.min(22, np.x));
     np.z = Math.max(-145, Math.min(65, np.z));
-    // Block solid walls (shophouse bodies)
-    if(Math.abs(np.x)>6.2 && Math.abs(np.x)<15.5){
-      // in the 5-foot-way — allowed
-    }
     if(Math.abs(np.x)>16.2) np.x = Math.sign(np.x)*16.2;
     playerPos.copy(np);
   }
@@ -707,25 +1064,23 @@ function updatePlayer(dt){
   camera.rotation.y=yaw;
   camera.rotation.x=pitch;
 
-  // Avatar behind camera
   const behind=new THREE.Vector3(Math.sin(yaw)*1.2,0,Math.cos(yaw)*1.2);
   const avPos=playerPos.clone().add(behind);
   avPos.y=0;
   avatarGroup.position.copy(avPos);
   avatarGroup.rotation.y=yaw+Math.PI;
-
-  // Hide avatar if looking straight down
   avatarGroup.visible = pitch < 0.3;
 
-  // Torch position — just ahead of camera
+  // Torch — bright spot ahead, fill point behind
   const tFwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
   torchLight.position.copy(playerPos).addScaledVector(tFwd,0.4);
-  torchLight.position.y=playerPos.y-0.15;
-  torchLight.target.position.copy(playerPos).addScaledVector(tFwd,8);
-  torchLight.target.position.y=playerPos.y-0.3;
+  torchLight.position.y=playerPos.y-0.1;
+  torchLight.target.position.copy(playerPos).addScaledVector(tFwd,12);
+  torchLight.target.position.y=playerPos.y-0.25;
   torchLight.target.updateMatrixWorld();
+  torchFill.position.copy(playerPos).addScaledVector(tFwd,2);
+  torchFill.position.y=playerPos.y;
 
-  // Walk animation
   const moving=keys.forward||keys.back||keys.left||keys.right;
   if(moving){
     const t2=clock.getElapsedTime()*(keys.sprint?6.5:3.8);
@@ -740,8 +1095,12 @@ function updatePlayer(dt){
 // ─── AUDIO SYSTEM ─────────────────────────────────────────────
 let audioCtx=null, masterGain=null, audioStarted=false;
 let radioNode=null, footstepTimer=0, nenekSoundTimer=0;
-let nenekProximitySound=false;
 let torchOn=false;
+
+// Proximity heartbeat / breath sound nodes
+let proximityGain=null, heartbeatOsc=null, heartbeatGain=null;
+let lastNenekDist=999;
+let nenekProxTimer=0; // for periodic proximity SFX
 
 function initAudio(){
   if(audioStarted) return;
@@ -754,7 +1113,7 @@ function initAudio(){
     masterGain.gain.value=0.3;
     masterGain.connect(audioCtx.destination);
 
-    // ── LOW DRONE ──
+    // Drone
     function drone(freq,gain,detune){
       const o=audioCtx.createOscillator();
       const g=audioCtx.createGain();
@@ -772,7 +1131,7 @@ function initAudio(){
     }
     drone(55,0.10,0); drone(55.4,0.05,6); drone(27.5,0.07,-4);
 
-    // ── WIND ──
+    // Wind
     function wind(){
       const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*3,audioCtx.sampleRate);
       const d=buf.getChannelData(0);
@@ -786,7 +1145,7 @@ function initAudio(){
     }
     wind();
 
-    // ── DISTANT TRAFFIC HUM ──
+    // Traffic hum
     function trafficHum(){
       const o=audioCtx.createOscillator();
       const g=audioCtx.createGain();
@@ -799,8 +1158,7 @@ function initAudio(){
     }
     trafficHum();
 
-    // ── RADIO — classic Malay P.Ramlee-era song (synthesized) ──
-    // Generates a simple pentatonic melody that loops, through heavy AM filtering
+    // Radio
     function buildRadio(){
       const radioGain=audioCtx.createGain(); radioGain.gain.value=0.0;
       const amFilter=audioCtx.createBiquadFilter(); amFilter.type='bandpass'; amFilter.frequency.value=1200; amFilter.Q.value=0.8;
@@ -808,8 +1166,6 @@ function initAudio(){
       const curve=new Float32Array(256);
       for(let i=0;i<256;i++){ const x=i*2/256-1; curve[i]=x*(1.2+Math.abs(x)); }
       distortion.curve=curve;
-
-      // Static noise for radio
       const staticBuf=audioCtx.createBuffer(1,audioCtx.sampleRate*2,audioCtx.sampleRate);
       const sd=staticBuf.getChannelData(0);
       for(let i=0;i<sd.length;i++) sd[i]=(Math.random()*2-1)*0.15;
@@ -817,36 +1173,29 @@ function initAudio(){
       staticSrc.buffer=staticBuf; staticSrc.loop=true;
       const sGain=audioCtx.createGain(); sGain.gain.value=0.3;
       staticSrc.connect(sGain); sGain.connect(radioGain);
-
-      // Melody oscillator (old Malay pentatonic)
-      const notes=[220,246,261,293,330,293,261,246]; // A3 pentatonic
+      const notes=[220,246,261,293,330,293,261,246];
       let ni=0;
       const melody=audioCtx.createOscillator();
-      melody.type='triangle';
-      melody.frequency.value=notes[0];
+      melody.type='triangle'; melody.frequency.value=notes[0];
       const mGain=audioCtx.createGain(); mGain.gain.value=0.12;
       melody.connect(amFilter); amFilter.connect(distortion); distortion.connect(mGain); mGain.connect(radioGain);
       melody.start(); staticSrc.start();
-
-      // Sequence the notes
       let noteTime=audioCtx.currentTime;
       function scheduleNotes(){
         for(let n=0;n<16;n++){
           melody.frequency.setValueAtTime(notes[ni%notes.length], noteTime);
           mGain.gain.setValueAtTime(Math.random()>0.15?0.12:0, noteTime);
-          ni++;
-          noteTime+=0.35;
+          ni++; noteTime+=0.35;
         }
         setTimeout(scheduleNotes, 5000);
       }
       scheduleNotes();
-
       radioGain.connect(masterGain);
       radioNode=radioGain;
     }
     buildRadio();
 
-    // ── CREAKS / GROANS ──
+    // Creaks
     function scheduleCreak(){
       const delay=6+Math.random()*18;
       setTimeout(()=>{
@@ -865,6 +1214,36 @@ function initAudio(){
     }
     scheduleCreak();
 
+    // Proximity heartbeat — slow thud that speeds up when nenek is near
+    heartbeatGain = audioCtx.createGain();
+    heartbeatGain.gain.value = 0;
+    heartbeatGain.connect(masterGain);
+
+    function scheduleHeartbeat(){
+      if(!audioCtx||!heartbeatGain) return;
+      const dist = lastNenekDist;
+      const rate = dist < 20 ? Math.max(0.4, dist/20) : 1.5; // faster when closer
+      const vol  = dist < 18 ? Math.max(0, (18-dist)/18 * 0.18) : 0;
+      heartbeatGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.3);
+
+      if(vol > 0.01){
+        // Double thud
+        [0, 0.12].forEach(offset=>{
+          const o=audioCtx.createOscillator();
+          const g=audioCtx.createGain();
+          o.type='sine'; o.frequency.value=55+Math.random()*10;
+          g.gain.setValueAtTime(0, audioCtx.currentTime+offset);
+          g.gain.linearRampToValueAtTime(1, audioCtx.currentTime+offset+0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+offset+0.22);
+          o.connect(g); g.connect(heartbeatGain);
+          o.start(audioCtx.currentTime+offset);
+          o.stop(audioCtx.currentTime+offset+0.25);
+        });
+      }
+      setTimeout(scheduleHeartbeat, rate*800);
+    }
+    scheduleHeartbeat();
+
   }catch(e){ console.warn('Audio fail:',e); }
 }
 
@@ -872,7 +1251,6 @@ document.addEventListener('keydown',initAudio,{once:true});
 document.addEventListener('touchstart',initAudio,{once:true});
 document.addEventListener('click',initAudio,{once:true});
 
-// Footstep sound
 function playFootstep(){
   if(!audioCtx||!masterGain) return;
   const o=audioCtx.createOscillator();
@@ -888,7 +1266,6 @@ function playFootstep(){
   o.start(); o.stop(audioCtx.currentTime+0.18);
 }
 
-// Nenek laugh/cackle
 function playNenekLaugh(){
   if(!audioCtx) return;
   const times=[0,0.18,0.36,0.55,0.75];
@@ -899,13 +1276,59 @@ function playNenekLaugh(){
     o.frequency.setValueAtTime(280+Math.random()*80,audioCtx.currentTime+t);
     o.frequency.exponentialRampToValueAtTime(180,audioCtx.currentTime+t+0.14);
     g.gain.setValueAtTime(0,audioCtx.currentTime+t);
-    g.gain.linearRampToValueAtTime(0.10,audioCtx.currentTime+t+0.02);
+    g.gain.linearRampToValueAtTime(0.12,audioCtx.currentTime+t+0.02);
     g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+t+0.16);
     const f=audioCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=800; f.Q.value=1.5;
     o.connect(f); f.connect(g); g.connect(masterGain);
     o.start(audioCtx.currentTime+t);
     o.stop(audioCtx.currentTime+t+0.2);
   });
+}
+
+// ─── NENEK PROXIMITY SOUND — "Nek... nek..." whisper-like ─────
+function playNenekProximityWhisper(){
+  if(!audioCtx) return;
+  // Low guttural hum rising — like a moan from behind
+  const o1=audioCtx.createOscillator();
+  const g1=audioCtx.createGain();
+  const f1=audioCtx.createBiquadFilter();
+  o1.type='sawtooth';
+  o1.frequency.setValueAtTime(95,audioCtx.currentTime);
+  o1.frequency.linearRampToValueAtTime(140,audioCtx.currentTime+0.6);
+  o1.frequency.exponentialRampToValueAtTime(70,audioCtx.currentTime+1.4);
+  f1.type='bandpass'; f1.frequency.value=500; f1.Q.value=2.5;
+  g1.gain.setValueAtTime(0,audioCtx.currentTime);
+  g1.gain.linearRampToValueAtTime(0.18,audioCtx.currentTime+0.15);
+  g1.gain.setValueAtTime(0.18,audioCtx.currentTime+0.9);
+  g1.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+1.5);
+  o1.connect(f1); f1.connect(g1); g1.connect(masterGain);
+  o1.start(); o1.stop(audioCtx.currentTime+1.6);
+
+  // Subtle high harmonic — eerie
+  const o2=audioCtx.createOscillator();
+  const g2=audioCtx.createGain();
+  o2.type='sine';
+  o2.frequency.setValueAtTime(440+Math.random()*80,audioCtx.currentTime+0.2);
+  o2.frequency.exponentialRampToValueAtTime(330,audioCtx.currentTime+1.2);
+  g2.gain.setValueAtTime(0,audioCtx.currentTime+0.2);
+  g2.gain.linearRampToValueAtTime(0.045,audioCtx.currentTime+0.35);
+  g2.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+1.3);
+  o2.connect(g2); g2.connect(masterGain);
+  o2.start(audioCtx.currentTime+0.2); o2.stop(audioCtx.currentTime+1.4);
+}
+
+// Scrape/shuffle sound — footstep of nenek
+function playNenekFootstep(){
+  if(!audioCtx) return;
+  const buf=audioCtx.createBuffer(1, audioCtx.sampleRate*0.3, audioCtx.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*Math.exp(-i/d.length*8);
+  const src=audioCtx.createBufferSource();
+  src.buffer=buf;
+  const f=audioCtx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=400;
+  const g=audioCtx.createGain(); g.gain.value=0.08;
+  src.connect(f); f.connect(g); g.connect(masterGain);
+  src.start();
 }
 
 // ─── HORROR STATE ─────────────────────────────────────────────
@@ -916,12 +1339,14 @@ const staticCanvas  = document.getElementById('static-canvas');
 const sCtx          = staticCanvas.getContext('2d');
 const staticMsg     = document.getElementById('static-msg');
 const nenekWarn     = document.getElementById('nenek-warn');
+const nenekPulse    = document.getElementById('nenek-pulse');
 
 const H={
   lastEvent:0, nextDelay:18+Math.random()*25,
   nenekActive:false, nenekPhase:'idle',
   nenekTimer:0, staticActive:false, staticTimer:0,
   flickerTimer:0, antennaBlink:0,
+  nenekFootstepTimer:0,
 };
 
 const MSGS=[
@@ -936,41 +1361,32 @@ const MSGS=[
   'ADA YANG IKUT AWAK',
 ];
 
-// ─── STATIC FRAME DRAWINGS ────────────────────────────────────
 function drawStatic(type){
   const W=staticCanvas.width, H2=staticCanvas.height;
   sCtx.fillStyle='#000'; sCtx.fillRect(0,0,W,H2);
 
   if(type==='alley'){
-    // Sky
     const sky=sCtx.createLinearGradient(0,0,0,H2*0.55);
     sky.addColorStop(0,'#070710'); sky.addColorStop(1,'#0f0f18');
     sCtx.fillStyle=sky; sCtx.fillRect(0,0,W,H2*0.55);
-    // Alley walls (more detailed — concrete texture via rects)
     sCtx.fillStyle='#0c0c10';
     sCtx.fillRect(0,H2*0.05,W*0.22,H2);
     sCtx.fillRect(W*0.78,H2*0.05,W*0.22,H2);
-    // Wall texture lines
     sCtx.strokeStyle='#0e0e14'; sCtx.lineWidth=1;
     for(let y=H2*0.1;y<H2;y+=12){ sCtx.beginPath(); sCtx.moveTo(0,y); sCtx.lineTo(W*0.22,y); sCtx.stroke(); }
     for(let y=H2*0.1;y<H2;y+=12){ sCtx.beginPath(); sCtx.moveTo(W*0.78,y); sCtx.lineTo(W,y); sCtx.stroke(); }
-    // Ground
     sCtx.fillStyle='#090910'; sCtx.fillRect(W*0.22,H2*0.52,W*0.56,H2);
-    // Perspective edges
     sCtx.strokeStyle='#181820'; sCtx.lineWidth=1;
     sCtx.beginPath();
     sCtx.moveTo(W*0.22,H2*0.52); sCtx.lineTo(W*0.44,H2*0.32);
     sCtx.moveTo(W*0.78,H2*0.52); sCtx.lineTo(W*0.56,H2*0.32);
     sCtx.stroke();
-    // Neon glow at vanishing point
     const ng=sCtx.createRadialGradient(W*0.5,H2*0.28,1,W*0.5,H2*0.28,55);
     ng.addColorStop(0,'rgba(0,200,100,0.15)'); ng.addColorStop(1,'transparent');
     sCtx.fillStyle=ng; sCtx.fillRect(0,0,W,H2);
-    // Dark figure at end
     sCtx.fillStyle='#000';
     sCtx.beginPath(); sCtx.arc(W*0.5,H2*0.29,5,0,Math.PI*2); sCtx.fill();
     sCtx.fillRect(W*0.497,H2*0.3,6,20);
-    // Overhead wires
     sCtx.strokeStyle='#1a1a22'; sCtx.lineWidth=1;
     for(let w=0;w<3;w++){
       sCtx.beginPath();
@@ -978,21 +1394,13 @@ function drawStatic(type){
       sCtx.quadraticCurveTo(W*0.5,H2*(0.3+w*0.04+0.04),W*0.78,H2*(0.25+w*0.04));
       sCtx.stroke();
     }
-    // Longkang drain edge
-    sCtx.strokeStyle='#111118'; sCtx.lineWidth=2;
-    sCtx.beginPath(); sCtx.moveTo(W*0.28,H2*0.52); sCtx.lineTo(W*0.32,H2); sCtx.stroke();
-    sCtx.beginPath(); sCtx.moveTo(W*0.72,H2*0.52); sCtx.lineTo(W*0.68,H2); sCtx.stroke();
-
   } else if(type==='nenek'){
     sCtx.fillStyle='#000'; sCtx.fillRect(0,0,W,H2);
-    // Dark street
     sCtx.fillStyle='#0c0c12'; sCtx.fillRect(0,H2*0.42,W,H2);
     sCtx.fillStyle='#060608'; sCtx.fillRect(0,0,W*0.18,H2); sCtx.fillRect(W*0.82,0,W*0.18,H2);
-    // Nenek silhouette — hunched
     sCtx.fillStyle='#000';
     sCtx.beginPath(); sCtx.ellipse(W*0.5,H2*0.52,20,28,-0.3,0,Math.PI*2); sCtx.fill();
     sCtx.beginPath(); sCtx.arc(W*0.5-10,H2*0.39,13,0,Math.PI*2); sCtx.fill();
-    // White hair
     sCtx.strokeStyle='rgba(210,210,190,0.45)'; sCtx.lineWidth=1;
     for(let i=0;i<10;i++){
       sCtx.beginPath();
@@ -1000,33 +1408,27 @@ function drawStatic(type){
       sCtx.lineTo(W*0.5-10+(Math.random()-0.5)*32,H2*0.27);
       sCtx.stroke();
     }
-    // Long reaching arm
     sCtx.fillStyle='#080608';
     sCtx.beginPath();
     sCtx.moveTo(W*0.5+18,H2*0.50); sCtx.lineTo(W*0.5+68,H2*0.65);
     sCtx.lineTo(W*0.5+62,H2*0.68); sCtx.lineTo(W*0.5+10,H2*0.54); sCtx.fill();
-    // Eyes — amber glow
     [[-14,0],[0,0]].forEach(([dx])=>{
       const eg=sCtx.createRadialGradient(W*0.5+dx-10,H2*0.39,0,W*0.5+dx-10,H2*0.39,6);
       eg.addColorStop(0,'rgba(255,180,50,0.85)'); eg.addColorStop(1,'transparent');
       sCtx.fillStyle=eg; sCtx.fillRect(W*0.5+dx-16,H2*0.36,12,12);
     });
-    // Neon reflection on ground
     const rg=sCtx.createLinearGradient(0,H2*0.42,0,H2);
     rg.addColorStop(0,'rgba(0,180,80,0.06)'); rg.addColorStop(1,'transparent');
     sCtx.fillStyle=rg; sCtx.fillRect(0,H2*0.42,W,H2);
-    // Vignette
     const v=sCtx.createRadialGradient(W*0.5,H2*0.5,W*0.08,W*0.5,H2*0.5,W*0.72);
     v.addColorStop(0,'transparent'); v.addColorStop(1,'rgba(0,0,0,0.9)');
     sCtx.fillStyle=v; sCtx.fillRect(0,0,W,H2);
   }
 
-  // Grain
   for(let i=0;i<2500;i++){
     sCtx.fillStyle=`rgba(255,255,255,${Math.random()*0.045})`;
     sCtx.fillRect(Math.random()*W,Math.random()*H2,1,1);
   }
-  // Scanlines
   sCtx.fillStyle='rgba(0,0,0,0.22)';
   for(let y=0;y<H2;y+=3) sCtx.fillRect(0,y,W,1);
 }
@@ -1040,22 +1442,26 @@ function showStatic(type,msg,dur){
 }
 
 function spawnNenek(){
-  const ang=yaw+(Math.random()-0.5)*0.8; // in front, slight random offset
-  const dist=12+Math.random()*10;
+  // Spawn BEHIND player — within ±60° behind
+  const behindAng = yaw + Math.PI + (Math.random()-0.5)*1.0;
+  const dist = 10 + Math.random()*8;
   nenekGroup.position.set(
-    playerPos.x+Math.sin(ang)*dist,
+    playerPos.x + Math.sin(behindAng)*dist,
     0,
-    playerPos.z+Math.cos(ang)*dist
+    playerPos.z + Math.cos(behindAng)*dist
   );
-  nenekGroup.rotation.y=yaw+Math.PI;
-  nenekGroup.visible=true;
-  H.nenekActive=true; H.nenekPhase='still'; H.nenekTimer=1.5+Math.random()*2;
+  nenekGroup.rotation.y = yaw; // facing player
+  nenekGroup.visible = true;
+  H.nenekActive=true; H.nenekPhase='still'; H.nenekTimer=1.2+Math.random()*1.5;
   subtitle.textContent='NENEK KEBAYAN';
   subtitle.classList.add('visible');
   setTimeout(()=>subtitle.classList.remove('visible'),3000);
-  // Turn on radio when nenek appears
-  if(radioNode) radioNode.gain.setTargetAtTime(0.18,audioCtx.currentTime,1.0);
+  if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(0.18,audioCtx.currentTime,1.0);
+  // Immediate proximity whisper on spawn
+  setTimeout(()=>playNenekProximityWhisper(), 400);
 }
+
+let nenekWalkAnimT = 0;
 
 function updateHorror(dt,elapsed){
   if(!H.staticActive && !H.nenekActive){
@@ -1093,64 +1499,98 @@ function updateHorror(dt,elapsed){
     if(H.staticTimer<=0){ H.staticActive=false; staticFrame.classList.remove('active'); }
   }
 
-  // Antenna blink
   H.antennaBlink+=dt;
   antennaLight.intensity=H.antennaBlink%2<0.15?0.8:0;
 
-  // Nenek logic
+  // ── NENEK UPDATE ──────────────────────────────────────────
   if(H.nenekActive){
     H.nenekTimer-=dt;
     const toPlayer=new THREE.Vector3().subVectors(playerPos,nenekGroup.position);
     const dist=toPlayer.length();
+    lastNenekDist = dist; // for heartbeat system
 
-    // Proximity effects
-    if(dist<15){
+    // Nenek glow — glows amber when close
+    nenekGlow.intensity = dist < 12 ? Math.max(0,(12-dist)/12 * 0.8) : 0;
+
+    // Proximity pulse overlay
+    if(dist < 18){
+      nenekPulse.classList.add('near');
       nenekWarn.classList.add('visible');
-      // Radio gets louder closer
-      if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(Math.max(0,(15-dist)/15*0.22),audioCtx.currentTime,0.5);
-      // Nenek laugh every few seconds when close
-      nenekSoundTimer-=dt;
-      if(nenekSoundTimer<=0){ playNenekLaugh(); nenekSoundTimer=3+Math.random()*3; }
+      if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(Math.max(0,(18-dist)/18*0.22),audioCtx.currentTime,0.5);
     } else {
+      nenekPulse.classList.remove('near');
       nenekWarn.classList.remove('visible');
-      nenekSoundTimer=Math.max(nenekSoundTimer,2);
     }
 
+    // Proximity whisper — periodic
+    nenekSoundTimer-=dt;
+    if(dist < 15 && nenekSoundTimer<=0){
+      playNenekLaugh();
+      if(dist < 10) playNenekProximityWhisper();
+      nenekSoundTimer = 2.5 + Math.random()*3;
+    } else if(dist >= 15){
+      nenekSoundTimer = Math.max(nenekSoundTimer, 3);
+    }
+
+    // STILL phase
     if(H.nenekPhase==='still'){
-      if(H.nenekTimer<=0){ H.nenekPhase='walking'; H.nenekTimer=4+Math.random()*4; }
-    } else if(H.nenekPhase==='walking'){
-      if(dist>2){
+      if(H.nenekTimer<=0){ H.nenekPhase='walking'; H.nenekTimer=5+Math.random()*5; }
+    }
+    // WALKING phase — she approaches
+    else if(H.nenekPhase==='walking'){
+      if(dist > 1.8){
         toPlayer.normalize();
-        nenekGroup.position.addScaledVector(toPlayer,1.3*dt);
-        nenekGroup.rotation.y=Math.atan2(toPlayer.x,toPlayer.z);
-        nenekGroup.position.y=Math.abs(Math.sin(clock.getElapsedTime()*2.5))*0.04;
+        nenekGroup.position.addScaledVector(toPlayer, 1.4*dt);
+        nenekGroup.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+
+        // Walk animation — visible hunched gait
+        nenekWalkAnimT += dt * 2.8;
+        const stepBob = Math.abs(Math.sin(nenekWalkAnimT)) * 0.06;
+        nenekGroup.position.y = stepBob;
+        nenLegL.position.y = 0.08 + Math.sin(nenekWalkAnimT) * 0.07;
+        nenLegR.position.y = 0.08 - Math.sin(nenekWalkAnimT) * 0.07;
+        nenArmL.position.y = 0.68 + Math.sin(nenekWalkAnimT) * 0.05;
+        nenArmR.position.y = 0.68 - Math.sin(nenekWalkAnimT) * 0.05;
+
+        // Nenek footstep sound
+        H.nenekFootstepTimer -= dt;
+        if(H.nenekFootstepTimer <= 0 && dist < 20){
+          playNenekFootstep();
+          H.nenekFootstepTimer = 0.55 + Math.random()*0.2;
+        }
       }
-      if(dist<2.5||H.nenekTimer<=0){
+
+      if(dist < 2.2 || H.nenekTimer<=0){
         nenekGroup.visible=false;
         H.nenekActive=false; H.nenekPhase='idle';
+        nenekPulse.classList.remove('near');
         nenekWarn.classList.remove('visible');
-        horrorOverlay.classList.add('red'); setTimeout(()=>horrorOverlay.classList.remove('red'),500);
+        horrorOverlay.classList.add('red');
+        setTimeout(()=>horrorOverlay.classList.remove('red'),500);
         if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(0,audioCtx.currentTime,1.5);
         nenekSoundTimer=5;
+        lastNenekDist=999;
       }
     }
 
     // Freeze when player looks at her
     const toCam=new THREE.Vector3().subVectors(nenekGroup.position,camera.position).normalize();
     const camDir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-    if(toCam.dot(camDir)>0.96&&dist<22){
+    if(toCam.dot(camDir)>0.96 && dist<22){
       H.nenekPhase='still'; H.nenekTimer=Math.max(H.nenekTimer,1.5);
       if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(0.05,audioCtx.currentTime,0.3);
     }
+  } else {
+    lastNenekDist = 999;
+    nenekPulse.classList.remove('near');
   }
 }
 
-// Torch toggle (T key)
+// Torch toggle
 document.addEventListener('keydown',e=>{
   if(e.key==='t'||e.key==='T'){
     torchOn=!torchOn;
     document.getElementById('torch-indicator').classList.toggle('on',torchOn);
-    torchLight.intensity=torchOn?2.8:0;
   }
 });
 
@@ -1180,12 +1620,10 @@ function updateHUD(elapsed){
   coordEl.textContent=`${lat}° N, ${lon}° E`;
 }
 
-// ─── CLOUDS ───────────────────────────────────────────────────
 function updateClouds(dt){
   clouds.forEach(c=>{ c.mesh.position.x+=c.speed*dt; if(c.mesh.position.x>170) c.mesh.position.x=-170; });
 }
 
-// ─── HINT FADE ────────────────────────────────────────────────
 const hint=document.getElementById('hint');
 let hintT=5, hintDone=false;
 
@@ -1205,10 +1643,15 @@ function animate(timestamp){
   updateHUD(elapsed);
   updateFootsteps(dt);
 
-  // Torch
-  torchLight.intensity = torchOn ? 2.8+Math.sin(elapsed*8)*0.05 : 0;
+  // Torch — bright when on, point at distance
+  if(torchOn){
+    torchLight.intensity = 5.5 + Math.sin(elapsed*8)*0.08;
+    torchFill.intensity  = 1.8;
+  } else {
+    torchLight.intensity = 0;
+    torchFill.intensity  = 0;
+  }
 
-  // Hint
   if(!hintDone){ hintT-=dt; if(hintT<=0){ hint.style.opacity='0'; hintDone=true; } }
 
   renderer.render(scene,camera);
@@ -1220,13 +1663,18 @@ window.addEventListener('resize',()=>{
   renderer.setSize(window.innerWidth,window.innerHeight);
 });
 
-// ─── LAUNCH ───────────────────────────────────────────────────
+// ─── LAUNCH SEQUENCE ──────────────────────────────────────────
 setLoad(100,'selamat datang ke kawasan');
 setTimeout(()=>{
   const lo=document.getElementById('loading');
   lo.style.opacity='0';
-  setTimeout(()=>lo.style.display='none',1200);
-  requestAnimationFrame(animate);
+  setTimeout(()=>{
+    lo.style.display='none';
+    // Show nenek intro, then start game
+    runNenekIntro(()=>{
+      requestAnimationFrame(animate);
+    });
+  }, 1200);
 },1400);
 
 })();
