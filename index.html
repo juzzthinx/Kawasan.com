@@ -3,1230 +3,1231 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>KAWASAN — F12</title>
+<title>KAWASAN — J.Nazreen</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-  #canvas { display: block; width: 100vw; height: 100vh; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; overflow:hidden; font-family:'Courier New',monospace; }
+#canvas { display:block; width:100vw; height:100vh; }
 
-  #no-webgl {
-    display: none;
-    position: fixed; inset: 0;
-    background: #000;
-    color: #ccc;
-    font-size: 1.2rem;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-    padding: 2rem;
-  }
+#no-webgl {
+  display:none; position:fixed; inset:0; background:#000;
+  color:#888; font-size:1rem; align-items:center; justify-content:center;
+  flex-direction:column; gap:1rem; text-align:center; padding:2rem;
+}
 
-  /* LOADING SCREEN */
-  #loading {
-    position: fixed; inset: 0;
-    background: #000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 1.5rem;
-    z-index: 100;
-    transition: opacity 1s ease;
-  }
-  #loading h1 {
-    color: #e8e0d0;
-    font-size: clamp(2rem, 8vw, 5rem);
-    letter-spacing: 0.4em;
-    font-weight: 100;
-    font-family: 'Courier New', monospace;
-  }
-  #loading p {
-    color: #666;
-    font-size: 0.75rem;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-  }
-  #loading-bar-wrap {
-    width: 200px;
-    height: 1px;
-    background: #222;
-  }
-  #loading-bar {
-    height: 1px;
-    background: #e8e0d0;
-    width: 0%;
-    transition: width 0.3s ease;
-  }
-  #loading-sub {
-    color: #444;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
-  }
+/* LOADING */
+#loading {
+  position:fixed; inset:0; background:#000;
+  display:flex; align-items:center; justify-content:center;
+  flex-direction:column; gap:1.2rem; z-index:200;
+  transition:opacity 1.2s ease;
+}
+#loading-label {
+  color:#444; font-size:0.55rem; letter-spacing:0.6em; text-transform:uppercase;
+}
+#loading h1 {
+  color:#d4c9a8; font-size:clamp(2.5rem,10vw,6rem);
+  letter-spacing:0.5em; font-weight:100; font-family:'Courier New',monospace;
+  text-shadow:0 0 40px rgba(212,201,168,0.15);
+}
+#loading-sub-title {
+  color:#555; font-size:0.6rem; letter-spacing:0.4em;
+}
+#loading-bar-wrap { width:180px; height:1px; background:#1a1a1a; }
+#loading-bar { height:1px; background:#d4c9a8; width:0%; transition:width 0.4s ease; }
+#loading-msg { color:#333; font-size:0.58rem; letter-spacing:0.2em; min-height:1em; }
 
-  /* HUD */
-  #hud {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    pointer-events: none;
-    z-index: 10;
-  }
-  #brand {
-    position: absolute;
-    top: 1.5rem; left: 50%;
-    transform: translateX(-50%);
-    color: rgba(232,224,208,0.35);
-    font-size: 0.65rem;
-    letter-spacing: 0.5em;
-    text-transform: uppercase;
-  }
-  #time-display {
-    position: absolute;
-    bottom: 1.5rem; left: 1.5rem;
-    color: rgba(232,224,208,0.25);
-    font-size: 0.6rem;
-    letter-spacing: 0.2em;
-  }
-  #coords {
-    position: absolute;
-    bottom: 1.5rem; right: 1.5rem;
-    color: rgba(232,224,208,0.2);
-    font-size: 0.55rem;
-    letter-spacing: 0.1em;
-    text-align: right;
-  }
+/* HUD */
+#hud {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  pointer-events:none; z-index:10;
+}
+#brand {
+  position:absolute; top:1.2rem; left:50%;
+  transform:translateX(-50%);
+  color:rgba(212,201,168,0.4); font-size:0.6rem; letter-spacing:0.6em;
+}
+#byline {
+  position:absolute; top:2.2rem; left:50%;
+  transform:translateX(-50%);
+  color:rgba(212,201,168,0.18); font-size:0.45rem; letter-spacing:0.4em;
+}
+#time-display {
+  position:absolute; bottom:1.4rem; left:1.4rem;
+  color:rgba(212,201,168,0.3); font-size:0.58rem; letter-spacing:0.2em;
+}
+#coords {
+  position:absolute; bottom:1.4rem; right:1.4rem;
+  color:rgba(212,201,168,0.2); font-size:0.5rem; letter-spacing:0.1em; text-align:right;
+}
+#torch-indicator {
+  position:absolute; top:1.2rem; right:1.4rem;
+  color:rgba(255,220,100,0.5); font-size:0.5rem; letter-spacing:0.2em;
+  opacity:0; transition:opacity 0.5s;
+}
+#torch-indicator.on { opacity:1; }
 
-  /* DPAD */
-  #dpad {
-    position: fixed;
-    bottom: 3rem; left: 50%;
-    transform: translateX(-50%);
-    display: grid;
-    grid-template-columns: repeat(3, 48px);
-    grid-template-rows: repeat(3, 48px);
-    gap: 4px;
-    z-index: 20;
-    pointer-events: all;
-  }
-  #dpad button {
-    background: rgba(232,224,208,0.08);
-    border: 1px solid rgba(232,224,208,0.15);
-    color: rgba(232,224,208,0.6);
-    font-size: 1rem;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background 0.1s;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-    touch-action: manipulation;
-  }
-  #dpad button:active, #dpad button.pressed {
-    background: rgba(232,224,208,0.2);
-    border-color: rgba(232,224,208,0.4);
-  }
-  #dpad .empty { visibility: hidden; }
-  #dpad #btn-sprint {
-    background: rgba(232,224,208,0.05);
-    font-size: 0.5rem;
-    letter-spacing: 0.05em;
-    color: rgba(232,224,208,0.4);
-  }
+/* CROSSHAIR */
+#crosshair {
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  width:12px; height:12px; pointer-events:none;
+}
+#crosshair::before, #crosshair::after {
+  content:''; position:absolute; background:rgba(212,201,168,0.25);
+}
+#crosshair::before { width:1px; height:12px; left:50%; top:0; }
+#crosshair::after  { width:12px; height:1px; top:50%; left:0; }
 
-  /* HORROR OVERLAY */
-  #horror-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0);
-    pointer-events: none;
-    z-index: 50;
-    transition: background 0.3s ease;
-  }
-  #horror-overlay.flash {
-    background: rgba(255,255,255,0.03);
-  }
-  #horror-overlay.red-flash {
-    background: rgba(80,0,0,0.15);
-  }
+/* DPAD — shifted left */
+#dpad {
+  position:fixed; bottom:2.5rem; left:18%;
+  transform:translateX(-50%);
+  display:grid;
+  grid-template-columns:repeat(3,52px);
+  grid-template-rows:repeat(3,52px);
+  gap:5px; z-index:20; pointer-events:all;
+}
+#dpad button {
+  background:rgba(212,201,168,0.07);
+  border:1px solid rgba(212,201,168,0.12);
+  color:rgba(212,201,168,0.55); font-size:1.1rem;
+  border-radius:6px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none; touch-action:manipulation;
+  transition:background 0.08s, border-color 0.08s;
+}
+#dpad button:active, #dpad button.pressed {
+  background:rgba(212,201,168,0.18);
+  border-color:rgba(212,201,168,0.35);
+}
+#dpad .empty { visibility:hidden; }
+#dpad #btn-sprint {
+  font-size:0.48rem; letter-spacing:0.08em;
+  color:rgba(212,201,168,0.35);
+  background:rgba(212,201,168,0.04);
+}
 
-  /* STILL FRAME */
-  #still-frame {
-    position: fixed; inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 60;
-    background: #000;
-  }
-  #still-frame.active { display: flex; }
-  #still-frame canvas {
-    width: 100vw;
-    height: 100vh;
-    image-rendering: pixelated;
-    filter: contrast(1.4) brightness(0.7) saturate(0.2);
-  }
-  #still-frame-text {
-    position: absolute;
-    bottom: 15%;
-    color: rgba(200,190,170,0.7);
-    font-size: 0.65rem;
-    letter-spacing: 0.4em;
-    font-family: 'Courier New', monospace;
-    text-transform: uppercase;
-  }
+/* HORROR OVERLAY */
+#horror-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0);
+  pointer-events:none; z-index:50;
+  transition:background 0.25s ease;
+}
+#horror-overlay.flash   { background:rgba(255,255,255,0.04); }
+#horror-overlay.red     { background:rgba(100,0,0,0.2); }
+#horror-overlay.white   { background:rgba(255,255,255,0.12); }
 
-  /* NENEK subtitle */
-  #nenek-text {
-    position: fixed;
-    bottom: 20%;
-    left: 50%;
-    transform: translateX(-50%);
-    color: rgba(200,180,150,0.0);
-    font-size: 0.7rem;
-    letter-spacing: 0.3em;
-    pointer-events: none;
-    z-index: 55;
-    transition: color 0.5s ease;
-    text-align: center;
-  }
-  #nenek-text.visible { color: rgba(200,180,150,0.8); }
+/* SUBTITLE */
+#subtitle {
+  position:fixed; bottom:22%; left:50%;
+  transform:translateX(-50%);
+  color:rgba(0,0,0,0); font-size:0.72rem;
+  letter-spacing:0.35em; pointer-events:none; z-index:55;
+  transition:color 0.6s ease; text-align:center; white-space:nowrap;
+  text-shadow:0 0 20px rgba(200,170,120,0.5);
+}
+#subtitle.visible { color:rgba(200,175,130,0.9); }
 
-  /* Vignette */
-  #vignette {
-    position: fixed; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.65) 100%);
-    pointer-events: none;
-    z-index: 5;
-  }
+/* STATIC FRAME */
+#static-frame {
+  position:fixed; inset:0; display:none;
+  align-items:center; justify-content:center;
+  z-index:60; background:#000;
+}
+#static-frame.active { display:flex; }
+#static-canvas { width:100vw; height:100vh; image-rendering:pixelated; }
+#static-msg {
+  position:absolute; bottom:14%;
+  color:rgba(200,185,155,0.75); font-size:0.65rem;
+  letter-spacing:0.45em; font-family:'Courier New',monospace;
+  text-transform:uppercase;
+}
 
-  /* CONTROLS HINT */
-  #controls-hint {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: rgba(232,224,208,0.5);
-    font-size: 0.65rem;
-    letter-spacing: 0.25em;
-    text-align: center;
-    z-index: 15;
-    pointer-events: none;
-    transition: opacity 2s ease;
-  }
-  #controls-hint p { margin-bottom: 0.4rem; }
+/* VIGNETTE */
+#vignette {
+  position:fixed; inset:0;
+  background:radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.75) 100%);
+  pointer-events:none; z-index:5;
+}
+
+/* CONTROLS HINT */
+#hint {
+  position:fixed; top:50%; left:50%;
+  transform:translate(-50%,-50%);
+  color:rgba(212,201,168,0.45); font-size:0.62rem;
+  letter-spacing:0.25em; text-align:center;
+  z-index:15; pointer-events:none;
+  transition:opacity 2s ease;
+}
+#hint p { margin-bottom:0.5rem; }
+
+/* NENEK WARNING */
+#nenek-warn {
+  position:fixed; top:35%; left:50%;
+  transform:translateX(-50%);
+  color:rgba(0,0,0,0); font-size:0.55rem;
+  letter-spacing:0.5em; pointer-events:none; z-index:56;
+  transition:color 1s ease; text-align:center;
+}
+#nenek-warn.visible { color:rgba(180,100,100,0.6); }
 </style>
 </head>
 <body>
 
 <div id="no-webgl">
-  <div>KAWASAN</div>
-  <div style="color:#555; font-size:0.8rem">WEBGL TIDAK DISOKONG<br>CUBA PELAYAR LAIN</div>
+  <div style="letter-spacing:0.4em">KAWASAN</div>
+  <div style="color:#444;font-size:0.8rem;margin-top:0.5rem">WEBGL TIDAK DISOKONG<br>CUBA PELAYAR LAIN</div>
 </div>
 
 <div id="loading">
-  <p style="color:#555; font-size:0.6rem; letter-spacing:0.4em">F12 PRESENTS</p>
+  <div id="loading-label">F12 PRESENTS</div>
   <h1>KAWASAN</h1>
+  <div id="loading-sub-title">by J.Nazreen</div>
   <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
-  <div id="loading-sub">memuatkan dunia...</div>
+  <div id="loading-msg">memuatkan dunia...</div>
 </div>
 
 <div id="hud">
-  <div id="brand">KAWASAN — F12</div>
+  <div id="brand">KAWASAN — J.NAZREEN</div>
+  <div id="byline">F12 PRODUCTIONS</div>
   <div id="time-display">03:17 AM</div>
   <div id="coords">3.1390° N, 101.6869° E</div>
+  <div id="torch-indicator">⚡ TORCH</div>
+  <div id="crosshair"></div>
 </div>
 
 <div id="vignette"></div>
 <div id="horror-overlay"></div>
-<div id="nenek-text"></div>
+<div id="subtitle"></div>
+<div id="nenek-warn">DIA DENGAR AWAK</div>
 
-<div id="still-frame">
-  <canvas id="still-canvas" width="640" height="360"></canvas>
-  <div id="still-frame-text"></div>
+<div id="static-frame">
+  <canvas id="static-canvas" width="640" height="360"></canvas>
+  <div id="static-msg"></div>
 </div>
 
 <div id="dpad">
-  <button class="empty"></button>
-  <button id="btn-up" data-dir="forward">▲</button>
+  <div class="empty"></div>
+  <button id="btn-up"     data-dir="forward">▲</button>
   <button id="btn-sprint" data-dir="sprint">RUN</button>
-  <button id="btn-left" data-dir="left">◀</button>
-  <button id="btn-down" data-dir="back">▼</button>
-  <button id="btn-right" data-dir="right">▶</button>
-  <button class="empty"></button>
-  <button class="empty"></button>
-  <button class="empty"></button>
+  <button id="btn-left"   data-dir="left">◀</button>
+  <button id="btn-down"   data-dir="back">▼</button>
+  <button id="btn-right"  data-dir="right">▶</button>
+  <div class="empty"></div>
+  <div class="empty"></div>
+  <div class="empty"></div>
 </div>
 
-<div id="controls-hint">
-  <p>WASD / ARROW KEYS</p>
-  <p style="color:rgba(232,224,208,0.3)">SHIFT untuk lari</p>
+<div id="hint">
+  <p>WASD / ANAK PANAH</p>
+  <p style="color:rgba(212,201,168,0.25)">SHIFT — lari &nbsp;|&nbsp; KLIK — pusing pandangan</p>
 </div>
 
 <canvas id="canvas"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ============================================================
-// KAWASAN v2 — F12
-// KL Liminal Horror Open World
-// ============================================================
+(function(){
 
-(function() {
-
-// ---- WEBGL CHECK ----
+// ─── WEBGL CHECK ──────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
-const noWebGL = document.getElementById('no-webgl');
 try {
-  const testCtx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-  if (!testCtx) throw new Error('no webgl');
+  const t = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  if (!t) throw 0;
 } catch(e) {
-  noWebGL.style.display = 'flex';
+  document.getElementById('no-webgl').style.display = 'flex';
   document.getElementById('loading').style.display = 'none';
   return;
 }
 
-// ---- SCENE SETUP ----
+// ─── RENDERER ────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.5;
-renderer.fog = new THREE.FogExp2(0x0a0a0f, 0.018);
+renderer.toneMappingExposure = 1.1;   // brighter overall
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0a0f);
-scene.fog = renderer.fog;
+scene.background = new THREE.Color(0x0d0d14);
+scene.fog = new THREE.FogExp2(0x0d0d14, 0.012); // lighter fog = more visible
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 300);
+const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 400);
 camera.position.set(0, 1.7, 0);
 
 const clock = new THREE.Clock();
-const loadingBar = document.getElementById('loading-bar');
-const loadingSub = document.getElementById('loading-sub');
 
-// ---- LOADING PROGRESS SIM ----
-let loadProgress = 0;
-function advanceLoad(pct, msg) {
-  loadProgress = pct;
-  loadingBar.style.width = pct + '%';
-  if (msg) loadingSub.textContent = msg;
-}
+// ─── LOADING UI ───────────────────────────────────────────────
+const loadBar = document.getElementById('loading-bar');
+const loadMsg  = document.getElementById('loading-msg');
+function setLoad(pct, msg){ loadBar.style.width=pct+'%'; if(msg) loadMsg.textContent=msg; }
 
-// ============================================================
-// WORLD GEOMETRY — KL Liminal Streets
-// ============================================================
-
-const MAT = {
-  road: new THREE.MeshLambertMaterial({ color: 0x111114 }),
-  sidewalk: new THREE.MeshLambertMaterial({ color: 0x1a1a1e }),
-  wall: new THREE.MeshLambertMaterial({ color: 0x141416 }),
-  wall2: new THREE.MeshLambertMaterial({ color: 0x0f0f12 }),
-  wall3: new THREE.MeshLambertMaterial({ color: 0x18141a }),
-  shopfront: new THREE.MeshLambertMaterial({ color: 0x0c0c0e }),
-  ceiling: new THREE.MeshLambertMaterial({ color: 0x0a0a0c }),
-  flicker: new THREE.MeshStandardMaterial({ color: 0xffeecc, emissive: 0xffddaa, emissiveIntensity: 0.6 }),
-  neon_r: new THREE.MeshStandardMaterial({ color: 0xff2222, emissive: 0xff1111, emissiveIntensity: 1.2 }),
-  neon_g: new THREE.MeshStandardMaterial({ color: 0x00ff88, emissive: 0x00ff66, emissiveIntensity: 1.0 }),
-  neon_b: new THREE.MeshStandardMaterial({ color: 0x4488ff, emissive: 0x3366ff, emissiveIntensity: 1.0 }),
-  neon_y: new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffaa00, emissiveIntensity: 0.8 }),
-  pole: new THREE.MeshLambertMaterial({ color: 0x222225 }),
-  glass: new THREE.MeshStandardMaterial({ color: 0x334455, transparent: true, opacity: 0.3, roughness: 0.1 }),
+// ─── MATERIALS ────────────────────────────────────────────────
+const M = {
+  road:      new THREE.MeshLambertMaterial({ color:0x1a1a1e }),
+  sidewalk:  new THREE.MeshLambertMaterial({ color:0x222228 }),
+  wall_a:    new THREE.MeshLambertMaterial({ color:0x1e1c20 }),
+  wall_b:    new THREE.MeshLambertMaterial({ color:0x181620 }),
+  wall_c:    new THREE.MeshLambertMaterial({ color:0x201a18 }),
+  shopfront: new THREE.MeshLambertMaterial({ color:0x111116 }),
+  ceiling:   new THREE.MeshLambertMaterial({ color:0x0e0e12 }),
+  pole:      new THREE.MeshLambertMaterial({ color:0x282830 }),
+  alley:     new THREE.MeshLambertMaterial({ color:0x141418 }),
+  alley_b:   new THREE.MeshLambertMaterial({ color:0x100e14 }),
+  ground_a:  new THREE.MeshLambertMaterial({ color:0x151518 }),
+  concrete:  new THREE.MeshLambertMaterial({ color:0x1c1c22 }),
+  rust:      new THREE.MeshLambertMaterial({ color:0x2a1a10 }),
+  neon_r:    new THREE.MeshStandardMaterial({ color:0xff3333, emissive:0xff1111, emissiveIntensity:2.0 }),
+  neon_g:    new THREE.MeshStandardMaterial({ color:0x00ff88, emissive:0x00ee66, emissiveIntensity:1.8 }),
+  neon_b:    new THREE.MeshStandardMaterial({ color:0x44aaff, emissive:0x2288ff, emissiveIntensity:1.8 }),
+  neon_y:    new THREE.MeshStandardMaterial({ color:0xffcc00, emissive:0xffaa00, emissiveIntensity:1.6 }),
+  neon_pk:   new THREE.MeshStandardMaterial({ color:0xff44aa, emissive:0xff22aa, emissiveIntensity:2.0 }),
+  lamp:      new THREE.MeshStandardMaterial({ color:0xffe8b0, emissive:0xffcc80, emissiveIntensity:1.5 }),
+  glass:     new THREE.MeshStandardMaterial({ color:0x334466, transparent:true, opacity:0.25, roughness:0.05 }),
+  skin:      new THREE.MeshLambertMaterial({ color:0xb07850 }),
+  shirt:     new THREE.MeshLambertMaterial({ color:0x1a2838 }),
+  pants:     new THREE.MeshLambertMaterial({ color:0x22201e }),
+  hair:      new THREE.MeshLambertMaterial({ color:0x080604 }),
+  shoes:     new THREE.MeshLambertMaterial({ color:0x111111 }),
+  n_skin:    new THREE.MeshLambertMaterial({ color:0x5a4535 }),
+  n_baju:    new THREE.MeshLambertMaterial({ color:0x100808 }),
+  n_hair:    new THREE.MeshLambertMaterial({ color:0xc8c8b0 }),
+  torch:     new THREE.MeshStandardMaterial({ color:0xffeecc, emissive:0xffdd99, emissiveIntensity:3.0 }),
+  distant:   new THREE.MeshLambertMaterial({ color:0x0e0e14 }),
+  wire:      new THREE.LineBasicMaterial({ color:0x1e1e22 }),
+  drain:     new THREE.MeshLambertMaterial({ color:0x111114 }),
 };
 
-const worldGroup = new THREE.Group();
-scene.add(worldGroup);
+const world = new THREE.Group();
+scene.add(world);
 
-function box(w, h, d, mat, x, y, z, rx, ry, rz) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  if (rx) m.rotation.x = rx;
-  if (ry) m.rotation.y = ry;
-  if (rz) m.rotation.z = rz;
-  m.receiveShadow = true;
-  m.castShadow = true;
-  worldGroup.add(m);
-  return m;
+// ─── HELPERS ──────────────────────────────────────────────────
+function box(w,h,d,mat,x,y,z,ry){
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z);
+  if(ry) m.rotation.y = ry;
+  m.receiveShadow = true; m.castShadow = true;
+  world.add(m); return m;
+}
+function cyl(r,h,mat,x,y,z,segs){
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,segs||8), mat);
+  m.position.set(x,y,z); m.castShadow=true; world.add(m); return m;
 }
 
-function cyl(r, h, mat, x, y, z, segs) {
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, segs || 8), mat);
-  m.position.set(x, y, z);
-  m.castShadow = true;
-  worldGroup.add(m);
-  return m;
+// ─── SCENE LIGHTS ─────────────────────────────────────────────
+// Brighter ambient — city glow, not pitch black
+scene.add(new THREE.AmbientLight(0x2a2a40, 1.4));
+// Moon — cool blue-white directional
+const moon = new THREE.DirectionalLight(0x8899cc, 0.6);
+moon.position.set(40,80,-60);
+moon.castShadow = true;
+scene.add(moon);
+// Orange city-haze fill from above (like KL smog glow)
+const cityGlow = new THREE.HemisphereLight(0x3a2a10, 0x050508, 0.5);
+scene.add(cityGlow);
+
+// ─── GROUND ───────────────────────────────────────────────────
+setLoad(8,'membina laluan...');
+box(300,0.1,300, M.road, 0,-0.05,0);
+
+// Painted road lines
+for(let i=-5;i<=5;i++){
+  box(0.12,0.02,2.5, new THREE.MeshLambertMaterial({color:0x555560}), 0,-0.02,i*6);
 }
 
-// ---- GROUND ----
-advanceLoad(10, 'membina jalanan...');
-box(200, 0.1, 200, MAT.road, 0, -0.05, 0);
-
-// ---- MAIN STREET (runs along Z axis) ----
-// 8m wide road, 1.5m sidewalk each side
-const STREET_W = 8;
-const BLOCK_LEN = 40;
-const NUM_BLOCKS = 6;
-
-// Sidewalk strips
-for (let i = 0; i < NUM_BLOCKS; i++) {
-  const z = i * BLOCK_LEN - NUM_BLOCKS * BLOCK_LEN * 0.5;
-  box(1.5, 0.12, BLOCK_LEN, MAT.sidewalk, -(STREET_W * 0.5 + 0.75), 0.06, z + BLOCK_LEN * 0.5);
-  box(1.5, 0.12, BLOCK_LEN, MAT.sidewalk, (STREET_W * 0.5 + 0.75), 0.06, z + BLOCK_LEN * 0.5);
+// ─── DRAINAGE LONGKANG (open drain both sides of road) ────────
+for(let z=-120;z<80;z+=8){
+  box(0.8,0.35,7.8, M.drain, -5.5,-0.17,z+4);
+  box(0.8,0.35,7.8, M.drain,  5.5,-0.17,z+4);
 }
 
-// ---- SHOPHOUSES — KL 5-foot-way style ----
-// Classic pre-war double storey shophouses
-function buildShophouse(x, z, flipped, wallMat) {
-  const sign = flipped ? 1 : -1;
-  const offsetX = sign * (STREET_W * 0.5 + 1.5 + 6);
+const STREET_W = 10;
+const BLOCK = 42;
+const BLOCKS = 7;
 
-  // Main structure
-  box(12, 7, 8, wallMat, offsetX, 3.5, z);
-  // 5-foot-way ceiling (covered walkway)
-  box(3, 0.2, 8, MAT.ceiling, offsetX - sign * 4.5, 3.0, z);
-  // 5-foot-way pillars
-  for (let pz = z - 3; pz <= z + 3; pz += 3) {
-    cyl(0.12, 3.0, MAT.pole, offsetX - sign * 4.5, 1.5, pz, 6);
+// Sidewalks
+for(let i=0;i<BLOCKS;i++){
+  const z = (i-BLOCKS*0.5)*BLOCK + BLOCK*0.5;
+  box(2.2,0.15,BLOCK, M.sidewalk, -(STREET_W*0.5+1.1), 0.075, z);
+  box(2.2,0.15,BLOCK, M.sidewalk,  (STREET_W*0.5+1.1), 0.075, z);
+}
+
+// ─── SHOPHOUSES — proper KL 5-foot-way prewar ─────────────────
+setLoad(18,'membina kedai...');
+function shophouse(cx, cz, side, wallMat, accentMat){
+  const s = side; // -1 left, 1 right
+  const ox = s*(STREET_W*0.5 + 2.2 + 6.5);
+
+  // Ground floor body
+  box(13,4.2,BLOCK*0.48, wallMat, ox, 2.1, cz);
+  // Upper floor
+  box(13,3.8,BLOCK*0.48, accentMat||wallMat, ox, 6.0, cz);
+  // Roofline parapet
+  box(13.4,0.5,BLOCK*0.48+0.4, M.concrete, ox, 8.05, cz);
+  // 5-foot-way ceiling slab
+  box(3.5,0.2,BLOCK*0.48, M.ceiling, ox-s*5.25, 3.4, cz);
+  // 5-foot-way columns
+  const numCols = Math.floor(BLOCK*0.48/4);
+  for(let c=0;c<numCols;c++){
+    const colz = cz - BLOCK*0.24 + c*4 + 2;
+    cyl(0.14,3.4, M.pole, ox-s*5.25, 1.7, colz, 6);
   }
-  // Shopfront opening (recessed)
-  box(4, 2.5, 0.3, MAT.shopfront, offsetX, 1.25, z - 4.01);
-  // Upper window details
-  box(2.5, 1.2, 0.1, MAT.glass, offsetX, 5.2, z - 4.02);
-  // Second floor overhang detail
-  box(12.2, 0.15, 0.5, MAT.wall2, offsetX, 3.6, z - 4.1);
-}
-
-// Place shophouses along both sides
-for (let i = 0; i < NUM_BLOCKS; i++) {
-  const z = (i - NUM_BLOCKS * 0.5) * BLOCK_LEN + BLOCK_LEN * 0.5;
-  const matL = i % 3 === 0 ? MAT.wall2 : i % 3 === 1 ? MAT.wall3 : MAT.wall;
-  const matR = i % 3 === 1 ? MAT.wall2 : i % 3 === 2 ? MAT.wall3 : MAT.wall;
-  buildShophouse(-1, z, false, matL);
-  buildShophouse(1, z, true, matR);
-}
-
-// ---- CROSS STREETS (perpendicular alleys) ----
-advanceLoad(25, 'membina lorong...');
-for (let i = 1; i < NUM_BLOCKS; i++) {
-  const z = (i - NUM_BLOCKS * 0.5) * BLOCK_LEN;
-  // Side alley floors
-  box(30, 0.1, 6, MAT.road, 0, -0.04, z);
-  // Alley walls (darker, oppressive)
-  box(0.3, 5, 30, MAT.wall2, -20, 2.5, z);
-  box(0.3, 5, 30, MAT.wall2, 20, 2.5, z);
-}
-
-// ---- OVERHEAD WIRING / CABLES ----
-const wireMat = new THREE.LineBasicMaterial({ color: 0x1a1a1a });
-for (let i = 0; i < 20; i++) {
-  const pts = [];
-  const startZ = (Math.random() - 0.5) * NUM_BLOCKS * BLOCK_LEN;
-  const sag = 0.3 + Math.random() * 0.4;
-  for (let t = 0; t <= 1; t += 0.1) {
-    pts.push(new THREE.Vector3(
-      -14 + (28 * t),
-      5.5 - sag * 4 * t * (1 - t),
-      startZ + (Math.random() - 0.5) * 2
-    ));
+  // Shopfront recesses (ground floor)
+  box(4,2.6,0.3, M.shopfront, ox, 1.3, cz - s*BLOCK*0.24 - 0.02);
+  // Upper windows
+  for(let w=0;w<3;w++){
+    const wz = cz + (w-1)*4;
+    box(2.2,1.6,0.12, M.glass, ox, 5.8, wz - s*BLOCK*0.24 - 0.06);
+    // Window frame
+    box(2.4,0.1,0.13, M.concrete, ox, 5.0, wz - s*BLOCK*0.24 - 0.06);
+    box(2.4,0.1,0.13, M.concrete, ox, 6.6, wz - s*BLOCK*0.24 - 0.06);
   }
-  const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  worldGroup.add(new THREE.Line(geo, wireMat));
+  // AC units on upper floor (detail)
+  box(0.9,0.6,0.7, M.concrete, ox + (Math.random()-0.5)*3, 5.2, cz + 2);
+  // Old signboard slot
+  box(5,0.8,0.12, wallMat, ox, 3.6, cz - s*BLOCK*0.24);
 }
 
-// ---- LAMP POSTS ----
+const wallMats = [M.wall_a, M.wall_b, M.wall_c];
+for(let i=0;i<BLOCKS;i++){
+  const cz = (i-BLOCKS*0.5)*BLOCK + BLOCK*0.5;
+  const mL = wallMats[i%3];
+  const mR = wallMats[(i+1)%3];
+  const aL = wallMats[(i+2)%3];
+  const aR = wallMats[i%3];
+  shophouse(0, cz, -1, mL, aL);
+  shophouse(0, cz,  1, mR, aR);
+}
+
+// ─── BACK ALLEY SYSTEM ────────────────────────────────────────
+setLoad(28,'membina lorong gelap...');
+// KL-style: narrow 3m alleys behind shophouses, walls close in
+function backAlley(side, startZ, length){
+  const ox = side*(STREET_W*0.5 + 2.2 + 14);
+  // Alley floor — cracked, stained
+  box(3.5, 0.1, length, M.alley_b, ox, -0.02, startZ);
+  // Back wall of shophouses (other side)
+  box(0.4, 9, length+2, M.alley, ox - side*1.75, 4.5, startZ);
+  // Opposite alley wall (back of next block)
+  box(0.4, 7, length+2, M.alley_b, ox + side*1.75, 3.5, startZ);
+
+  // Clutter: bins, crates, pipes
+  const numItems = Math.floor(length/10);
+  for(let n=0;n<numItems;n++){
+    const iz = startZ - length*0.5 + n*(length/numItems) + Math.random()*4;
+    const iy = 0.2 + Math.random()*0.3;
+    // Trash bin
+    box(0.5,0.8,0.5, M.rust, ox + (Math.random()-0.5)*1.5, iy, iz);
+    // Pipe along wall
+    cyl(0.06, 2.5, M.pole, ox - side*1.5, 2.5, iz, 5);
+  }
+  // Puddle (dark plane, slightly reflective)
+  const pudMat = new THREE.MeshStandardMaterial({color:0x0a0a10,roughness:0.05,metalness:0.9,transparent:true,opacity:0.7});
+  const pud = new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.2), pudMat);
+  pud.rotation.x = -Math.PI/2;
+  pud.position.set(ox, 0.01, startZ + (Math.random()-0.5)*length*0.5);
+  world.add(pud);
+}
+
+backAlley(-1, -60, BLOCKS*BLOCK*0.85);
+backAlley( 1, -40, BLOCKS*BLOCK*0.85);
+
+// ─── CROSS ALLEYS (perpendicular — connects main st to back) ──
+for(let i=1;i<BLOCKS;i++){
+  const z = (i - BLOCKS*0.5)*BLOCK;
+  // Alley floor
+  box(32, 0.1, 5.5, M.alley, 0, -0.03, z);
+  // Side walls
+  box(0.3, 6, 32, M.alley_b, -20, 3, z);
+  box(0.3, 6, 32, M.alley_b,  20, 3, z);
+  // Ceiling gap with wires
+  box(32, 0.2, 0.3, M.ceiling, 0, 5.8, z);
+}
+
+// ─── OVERHEAD WIRES ───────────────────────────────────────────
+setLoad(35,'memasang wayar...');
+for(let i=0;i<28;i++){
+  const pts=[];
+  const sz=(Math.random()-0.5)*BLOCKS*BLOCK;
+  const sag=0.3+Math.random()*0.5;
+  for(let t=0;t<=1;t+=0.08){
+    pts.push(new THREE.Vector3(-18+36*t, 6.2-sag*4*t*(1-t), sz+(Math.random()-0.5)*1.5));
+  }
+  world.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), M.wire));
+}
+
+// ─── LAMP POSTS ───────────────────────────────────────────────
+setLoad(42,'menyalakan lampu...');
 const lampLights = [];
-advanceLoad(35, 'menyalakan lampu...');
-for (let i = -NUM_BLOCKS * 0.5; i <= NUM_BLOCKS * 0.5; i++) {
-  const z = i * BLOCK_LEN * 0.5;
-  [-1, 1].forEach(side => {
-    const lx = side * (STREET_W * 0.5 + 0.5);
-    // Pole
-    cyl(0.06, 5.5, MAT.pole, lx, 2.75, z, 6);
-    // Arm
-    box(1.2, 0.06, 0.06, MAT.pole, lx + side * 0.5, 5.5, z);
-    // Lamp head
-    const lamp = box(0.3, 0.2, 0.3, MAT.flicker, lx + side * 1.1, 5.45, z);
-    // Point light
-    const pl = new THREE.PointLight(0xffe8c0, 0.9, 18, 2);
-    pl.position.set(lx + side * 1.1, 5.3, z);
+
+for(let i=-BLOCKS*0.5;i<=BLOCKS*0.5;i++){
+  const z = i*BLOCK*0.5;
+  [-1,1].forEach(s=>{
+    const lx = s*(STREET_W*0.5+0.6);
+    cyl(0.07,6.5,M.pole, lx, 3.25, z, 6);
+    box(1.5,0.07,0.07, M.pole, lx+s*0.6, 6.5, z);
+    const lampHead = box(0.35,0.22,0.35, M.lamp, lx+s*1.3, 6.45, z);
+    const pl = new THREE.PointLight(0xffd080, 1.6, 22, 2);
+    pl.position.set(lx+s*1.3, 6.2, z);
     scene.add(pl);
-    lampLights.push({ light: pl, lamp, base: 0.9, phase: Math.random() * Math.PI * 2 });
+    lampLights.push({light:pl, mesh:lampHead, base:1.6, phase:Math.random()*Math.PI*2});
   });
 }
 
-// ---- NEON SIGNS ----
-advanceLoad(45, 'menghidupkan papan tanda...');
-const neonSigns = [
-  { text: 'MAMAK', mat: MAT.neon_r, x: -20, y: 4.5, z: -60 },
-  { text: 'KEDAI', mat: MAT.neon_g, x: 20, y: 5.0, z: -20 },
-  { text: 'OPEN', mat: MAT.neon_b, x: -22, y: 3.5, z: 20 },
-  { text: '24', mat: MAT.neon_y, x: 22, y: 4.0, z: 60 },
-  { text: 'MAKAN', mat: MAT.neon_r, x: -20, y: 3.8, z: 40 },
+// ─── NEON SIGNS — KL Mamak/Kedai era ─────────────────────────
+setLoad(50,'menghidupkan papan neon...');
+const neons = [
+  {mat:M.neon_r,  x:-22, y:4.8, z:-80, w:3.2, h:0.7},
+  {mat:M.neon_g,  x: 23, y:5.2, z:-40, w:2.8, h:0.6},
+  {mat:M.neon_b,  x:-24, y:4.2, z: 10, w:3.5, h:0.65},
+  {mat:M.neon_y,  x: 22, y:4.6, z: 50, w:2.5, h:0.6},
+  {mat:M.neon_pk, x:-22, y:5.0, z: 80, w:3.0, h:0.6},
+  {mat:M.neon_r,  x: 24, y:4.4, z:-60, w:2.2, h:0.55},
+  {mat:M.neon_g,  x:-23, y:4.7, z: 40, w:2.6, h:0.6},
+  {mat:M.neon_pk, x: 22, y:5.1, z:-10, w:3.2, h:0.7},
 ];
-
-neonSigns.forEach(s => {
-  const sign = box(2.5, 0.6, 0.1, s.mat, s.x, s.y, s.z);
-  const glow = new THREE.PointLight(s.mat.emissive, 0.4, 8, 2);
-  glow.position.set(s.x, s.y, s.z);
-  scene.add(glow);
-  lampLights.push({ light: glow, lamp: sign, base: 0.4, phase: Math.random() * Math.PI * 2, neon: true });
+neons.forEach((n,idx)=>{
+  const sign = box(n.w, n.h, 0.1, n.mat, n.x, n.y, n.z);
+  const gl = new THREE.PointLight(n.mat.emissive, 0.7, 12, 2);
+  gl.position.set(n.x, n.y, n.z);
+  scene.add(gl);
+  lampLights.push({light:gl, mesh:sign, base:0.7, phase:idx*0.7+1.3, neon:true});
 });
 
-// ---- DISTANT SKYLINE (LOD far objects) ----
-advanceLoad(55, 'membina skyline...');
-// Low-poly distant buildings to suggest KL skyline
-const distantBuildingData = [
-  { x: -80, h: 60, w: 8, d: 8, z: -120 },
-  { x: -65, h: 45, w: 6, d: 7, z: -110 },
-  { x: -90, h: 80, w: 10, d: 10, z: -130 }, // Petronas-ish
-  { x: -82, h: 80, w: 10, d: 10, z: -115 }, // Twin
-  { x: 80, h: 55, w: 7, d: 8, z: -100 },
-  { x: 70, h: 35, w: 6, d: 6, z: -90 },
-  { x: 100, h: 70, w: 9, d: 9, z: -140 },
-  { x: -100, h: 50, w: 8, d: 8, z: -80 },
-];
-const distMat = new THREE.MeshLambertMaterial({ color: 0x0d0d12 });
-distantBuildingData.forEach(b => {
-  box(b.w, b.h, b.d, distMat, b.x, b.h * 0.5, b.z);
-  // Sparse window lights on far buildings
-  if (Math.random() > 0.5) {
-    const wl = new THREE.PointLight(0x4466aa, 0.15, 30, 2);
-    wl.position.set(b.x, b.h * 0.7, b.z);
+// ─── DISTANT KL SKYLINE ───────────────────────────────────────
+setLoad(58,'membina skyline...');
+[
+  {x:-90,z:-150,w:10,d:10,h:90},{x:-78,z:-140,w:10,d:10,h:90},
+  {x:-68,z:-130,w:7,d:8,h:55}, {x:-100,z:-120,w:9,d:9,h:70},
+  {x: 85,z:-140,w:8,d:9,h:65}, {x: 72,z:-125,w:7,d:7,h:45},
+  {x: 98,z:-155,w:11,d:11,h:80},{x:-50,z:-160,w:6,d:6,h:40},
+].forEach(b=>{
+  box(b.w,b.h,b.d, M.distant, b.x, b.h*0.5, b.z);
+  // Window glows
+  if(Math.random()>0.4){
+    const wl=new THREE.PointLight(0x4466aa,0.2,50,2);
+    wl.position.set(b.x,b.h*0.75,b.z);
     scene.add(wl);
   }
 });
+// KLCC twin spires
+box(3,25,3, M.distant, -90,102,-150);
+box(3,25,3, M.distant, -78,102,-140);
+// Antenna light (blinking red — handled in loop)
+const antennaLight = new THREE.PointLight(0xff2200,0.6,20,2);
+antennaLight.position.set(-84,130,-145);
+scene.add(antennaLight);
 
-// Twin towers spires (two boxes on top)
-box(2, 20, 2, distMat, -90, 90, -130);
-box(2, 20, 2, distMat, -82, 90, -115);
-
-// ---- AMBIENT SCENE LIGHTS ----
-scene.add(new THREE.AmbientLight(0x05050a, 0.8));
-const moonLight = new THREE.DirectionalLight(0x334466, 0.3);
-moonLight.position.set(50, 80, -50);
-moonLight.castShadow = true;
-scene.add(moonLight);
-
-// ============================================================
-// REAL CLOUDS — volumetric-style with layered sprites
-// ============================================================
-advanceLoad(60, 'mengumpul awan...');
-
+// ─── CLOUDS ───────────────────────────────────────────────────
+setLoad(64,'mengumpul awan...');
 const cloudGroup = new THREE.Group();
 scene.add(cloudGroup);
-
-function makeCloud(x, y, z, scale) {
-  const g = new THREE.Group();
-  const numPuffs = 5 + Math.floor(Math.random() * 5);
-  const puffMat = new THREE.MeshStandardMaterial({
-    color: 0x0c0c12,
-    transparent: true,
-    opacity: 0.55,
-    roughness: 1,
-    metalness: 0,
-  });
-  for (let i = 0; i < numPuffs; i++) {
-    const r = (0.5 + Math.random() * 0.8) * scale;
-    const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), puffMat.clone());
-    puff.position.set(
-      (Math.random() - 0.5) * scale * 2.5,
-      (Math.random() - 0.5) * scale * 0.6,
-      (Math.random() - 0.5) * scale * 1.5
-    );
-    g.add(puff);
+const clouds=[];
+function makeCloud(x,y,z,sc){
+  const g=new THREE.Group();
+  const puffs=5+Math.floor(Math.random()*6);
+  for(let i=0;i<puffs;i++){
+    const r=(0.5+Math.random()*0.9)*sc;
+    const pm=new THREE.MeshStandardMaterial({color:0x0c0c16,transparent:true,opacity:0.5+Math.random()*0.2,roughness:1});
+    const p=new THREE.Mesh(new THREE.SphereGeometry(r,7,5),pm);
+    p.position.set((Math.random()-0.5)*sc*2.5,(Math.random()-0.5)*sc*0.5,(Math.random()-0.5)*sc*1.5);
+    g.add(p);
   }
-  g.position.set(x, y, z);
+  g.position.set(x,y,z);
   cloudGroup.add(g);
   return g;
 }
-
-const clouds = [];
-for (let i = 0; i < 18; i++) {
-  const c = makeCloud(
-    (Math.random() - 0.5) * 300,
-    35 + Math.random() * 30,
-    (Math.random() - 0.5) * 300,
-    4 + Math.random() * 8
-  );
-  clouds.push({ mesh: c, speed: 0.3 + Math.random() * 0.5 });
+for(let i=0;i<20;i++){
+  const c=makeCloud((Math.random()-0.5)*350,38+Math.random()*35,(Math.random()-0.5)*350,5+Math.random()*9);
+  clouds.push({mesh:c,speed:0.25+Math.random()*0.5});
 }
 
-// ============================================================
-// AVATAR — Malay guy (low poly humanoid)
-// ============================================================
-advanceLoad(70, 'mencipta watak...');
-
+// ─── AVATAR (Malay guy) ───────────────────────────────────────
+setLoad(72,'mencipta watak...');
 const avatarGroup = new THREE.Group();
 scene.add(avatarGroup);
 
-const skinMat = new THREE.MeshLambertMaterial({ color: 0xb07850 });
-const shirtMat = new THREE.MeshLambertMaterial({ color: 0x1a2a3a }); // dark baju
-const pantsMat = new THREE.MeshLambertMaterial({ color: 0x22201e });
-const hairMat = new THREE.MeshLambertMaterial({ color: 0x0a0806 });
-const shoesMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-
-function avBox(w, h, d, mat, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  m.castShadow = true;
-  avatarGroup.add(m);
-  return m;
+function avB(w,h,d,mat,x,y,z){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  m.position.set(x,y,z); m.castShadow=true;
+  avatarGroup.add(m); return m;
 }
+avB(0.44,0.56,0.22, M.shirt,  0,1.06,0);
+avB(0.40,0.55,0.20, M.pants,  0,0.46,0);
+avB(0.30,0.33,0.28, M.skin,   0,1.60,0);
+avB(0.32,0.10,0.30, M.hair,   0,1.76,-0.01);
+avB(0.31,0.18,0.08, M.hair,   0,1.67,-0.15);
+const armL=avB(0.13,0.48,0.13,M.shirt,-0.28,1.03,0);
+const armR=avB(0.13,0.48,0.13,M.shirt, 0.28,1.03,0);
+avB(0.11,0.22,0.11, M.skin, -0.28,0.73,0);
+avB(0.11,0.22,0.11, M.skin,  0.28,0.73,0);
+const legL=avB(0.16,0.48,0.16,M.pants,-0.11,0.12,0);
+const legR=avB(0.16,0.48,0.16,M.pants, 0.11,0.12,0);
+avB(0.14,0.18,0.22, M.shoes,-0.11,-0.15,0.03);
+avB(0.14,0.18,0.22, M.shoes, 0.11,-0.15,0.03);
 
-// Body
-avBox(0.42, 0.55, 0.22, shirtMat, 0, 1.05, 0);   // torso
-avBox(0.38, 0.55, 0.20, pantsMat, 0, 0.45, 0);    // lower body
-// Head
-avBox(0.3, 0.32, 0.28, skinMat, 0, 1.58, 0);       // head
-avBox(0.32, 0.1, 0.30, hairMat, 0, 1.74, -0.01);   // hair top
-avBox(0.31, 0.18, 0.08, hairMat, 0, 1.66, -0.14);  // hair back
-// Arms
-const armL = avBox(0.13, 0.48, 0.13, shirtMat, -0.28, 1.02, 0);
-const armR = avBox(0.13, 0.48, 0.13, shirtMat, 0.28, 1.02, 0);
-avBox(0.11, 0.22, 0.11, skinMat, -0.28, 0.72, 0);   // forearm L
-avBox(0.11, 0.22, 0.11, skinMat, 0.28, 0.72, 0);    // forearm R
-avBox(0.10, 0.12, 0.09, skinMat, -0.28, 0.56, 0);   // hand L
-avBox(0.10, 0.12, 0.09, skinMat, 0.28, 0.56, 0);    // hand R
-// Legs
-const legL = avBox(0.16, 0.48, 0.16, pantsMat, -0.11, 0.12, 0);
-const legR = avBox(0.16, 0.48, 0.16, pantsMat, 0.11, 0.12, 0);
-avBox(0.14, 0.18, 0.22, shoesMat, -0.11, -0.15, 0.03); // shoe L
-avBox(0.14, 0.18, 0.22, shoesMat, 0.11, -0.15, 0.03);  // shoe R
+// Torchlight attached to avatar (held forward)
+const torchMesh = avB(0.06,0.06,0.18, M.torch, 0.28,0.75,0.12);
+const torchLight = new THREE.SpotLight(0xffe8a0, 0, 18, Math.PI/7, 0.4, 1.5);
+torchLight.castShadow = false;
+scene.add(torchLight);
+scene.add(torchLight.target);
 
-avatarGroup.position.set(0, 0, -3);
 avatarGroup.visible = true;
 
-// ============================================================
-// NENEK KEBAYAN — horror entity
-// ============================================================
-advanceLoad(80, 'memanggil entiti...');
-
+// ─── NENEK KEBAYAN ────────────────────────────────────────────
+setLoad(80,'memanggil entiti...');
 const nenekGroup = new THREE.Group();
 scene.add(nenekGroup);
 nenekGroup.visible = false;
 
-const oldSkinMat = new THREE.MeshLambertMaterial({ color: 0x6a5545 });
-const bajuMat = new THREE.MeshLambertMaterial({ color: 0x181010 });
-const whiteHairMat = new THREE.MeshLambertMaterial({ color: 0xccccbb });
-
-function nenekBox(w, h, d, mat, x, y, z) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  m.castShadow = true;
-  nenekGroup.add(m);
-  return m;
+function nenB(w,h,d,mat,x,y,z){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  m.position.set(x,y,z); m.castShadow=true;
+  nenekGroup.add(m); return m;
 }
+nenB(0.38,0.45,0.20, M.n_baju,  0,0.82,0);
+nenB(0.34,0.45,0.18, M.n_baju,  0,0.32,0);
+nenB(0.26,0.28,0.24, M.n_skin,  0,1.26,0.06);
+nenB(0.28,0.18,0.26, M.n_hair,  0,1.40,-0.02);
+nenB(0.10,0.65,0.10, M.n_baju, -0.26,0.68,0.06);
+nenB(0.10,0.65,0.10, M.n_baju,  0.26,0.68,0.06);
+nenB(0.09,0.22,0.08, M.n_skin, -0.26,0.32,0.06);
+nenB(0.09,0.22,0.08, M.n_skin,  0.26,0.32,0.06);
+nenB(0.14,0.46,0.14, M.n_baju, -0.10,0.08,0);
+nenB(0.14,0.46,0.14, M.n_baju,  0.10,0.08,0);
+// Eye glow
+const eyeMatL=new THREE.MeshStandardMaterial({emissive:0xffaa00,emissiveIntensity:3,color:0x000000});
+const eyeMatR=new THREE.MeshStandardMaterial({emissive:0xffaa00,emissiveIntensity:3,color:0x000000});
+const eyeL=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,4),eyeMatL);
+const eyeR=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,4),eyeMatR);
+eyeL.position.set(-0.07,1.26,0.13);
+eyeR.position.set( 0.07,1.26,0.13);
+nenekGroup.add(eyeL); nenekGroup.add(eyeR);
+nenekGroup.rotation.x = 0.18;
+nenekGroup.position.set(999,0,999);
 
-// Hunched body — smaller, stooped
-nenekBox(0.38, 0.45, 0.20, bajuMat, 0, 0.82, 0);    // torso (hunched)
-nenekBox(0.34, 0.45, 0.18, bajuMat, 0, 0.32, 0);    // lower
-nenekBox(0.26, 0.28, 0.24, oldSkinMat, 0, 1.26, 0.04); // head (forward tilt)
-nenekBox(0.28, 0.18, 0.26, whiteHairMat, 0, 1.40, -0.02); // hair
-// Long dragging arms
-nenekBox(0.10, 0.60, 0.10, bajuMat, -0.26, 0.70, 0.05);
-nenekBox(0.10, 0.60, 0.10, bajuMat, 0.26, 0.70, 0.05);
-nenekBox(0.09, 0.20, 0.08, oldSkinMat, -0.26, 0.35, 0.05); // hand claw
-nenekBox(0.09, 0.20, 0.08, oldSkinMat, 0.26, 0.35, 0.05);
-// Legs
-nenekBox(0.14, 0.44, 0.14, bajuMat, -0.10, 0.08, 0);
-nenekBox(0.14, 0.44, 0.14, bajuMat, 0.10, 0.08, 0);
+// ─── INPUT ────────────────────────────────────────────────────
+const keys={forward:false,back:false,left:false,right:false,sprint:false};
 
-nenekGroup.rotation.x = 0.15; // slouch forward
-nenekGroup.position.set(999, 0, 999); // far away initially
-
-// ============================================================
-// INPUT SYSTEM
-// ============================================================
-const keys = {
-  forward: false, back: false, left: false, right: false, sprint: false
-};
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.forward = true;
-  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.back = true;
-  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
-  if (e.key === 'Shift') keys.sprint = true;
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowUp'   ||e.key==='w'||e.key==='W') keys.forward=true;
+  if(e.key==='ArrowDown' ||e.key==='s'||e.key==='S') keys.back=true;
+  if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A') keys.left=true;
+  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') keys.right=true;
+  if(e.key==='Shift') keys.sprint=true;
 });
-document.addEventListener('keyup', e => {
-  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keys.forward = false;
-  if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keys.back = false;
-  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
-  if (e.key === 'Shift') keys.sprint = false;
+document.addEventListener('keyup',e=>{
+  if(e.key==='ArrowUp'   ||e.key==='w'||e.key==='W') keys.forward=false;
+  if(e.key==='ArrowDown' ||e.key==='s'||e.key==='S') keys.back=false;
+  if(e.key==='ArrowLeft' ||e.key==='a'||e.key==='A') keys.left=false;
+  if(e.key==='ArrowRight'||e.key==='d'||e.key==='D') keys.right=false;
+  if(e.key==='Shift') keys.sprint=false;
 });
 
-// D-pad touch
-document.querySelectorAll('#dpad button[data-dir]').forEach(btn => {
-  const dir = btn.dataset.dir;
-  const start = (e) => { e.preventDefault(); keys[dir] = true; btn.classList.add('pressed'); };
-  const end = (e) => { e.preventDefault(); keys[dir] = false; btn.classList.remove('pressed'); };
-  btn.addEventListener('touchstart', start, { passive: false });
-  btn.addEventListener('touchend', end, { passive: false });
-  btn.addEventListener('touchcancel', end, { passive: false });
-  btn.addEventListener('mousedown', start);
-  btn.addEventListener('mouseup', end);
+document.querySelectorAll('#dpad button[data-dir]').forEach(btn=>{
+  const dir=btn.dataset.dir;
+  const on=e=>{ e.preventDefault(); keys[dir]=true;  btn.classList.add('pressed'); };
+  const off=e=>{ e.preventDefault(); keys[dir]=false; btn.classList.remove('pressed'); };
+  btn.addEventListener('touchstart',on,{passive:false});
+  btn.addEventListener('touchend',off,{passive:false});
+  btn.addEventListener('touchcancel',off,{passive:false});
+  btn.addEventListener('mousedown',on);
+  btn.addEventListener('mouseup',off);
 });
 
 // Mouse look
-let yaw = 0, pitch = 0;
-let isPointerLocked = false;
-canvas.addEventListener('click', () => { canvas.requestPointerLock(); });
-document.addEventListener('pointerlockchange', () => {
-  isPointerLocked = document.pointerLockElement === canvas;
-});
-document.addEventListener('mousemove', e => {
-  if (!isPointerLocked) return;
-  yaw -= e.movementX * 0.002;
-  pitch -= e.movementY * 0.002;
-  pitch = Math.max(-0.6, Math.min(0.6, pitch));
+let yaw=0, pitch=0, locked=false;
+canvas.addEventListener('click',()=>canvas.requestPointerLock());
+document.addEventListener('pointerlockchange',()=>locked=document.pointerLockElement===canvas);
+document.addEventListener('mousemove',e=>{
+  if(!locked) return;
+  yaw   -= e.movementX*0.0022;
+  pitch -= e.movementY*0.0022;
+  pitch  = Math.max(-0.55,Math.min(0.55,pitch));
 });
 
-// Touch look (swipe right half of screen)
-let touchStartX = 0, touchStartY = 0;
-canvas.addEventListener('touchstart', e => {
-  const t = e.touches[0];
-  if (t.clientX > window.innerWidth * 0.4) {
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
+// Touch look — right half
+let tx0=0,ty0=0;
+canvas.addEventListener('touchstart',e=>{ const t=e.touches[0]; if(t.clientX>window.innerWidth*0.4){tx0=t.clientX;ty0=t.clientY;} },{passive:true});
+canvas.addEventListener('touchmove',e=>{
+  const t=e.touches[0];
+  if(t.clientX>window.innerWidth*0.4){
+    yaw   -= (t.clientX-tx0)*0.003;
+    pitch -= (t.clientY-ty0)*0.003;
+    pitch  = Math.max(-0.5,Math.min(0.5,pitch));
+    tx0=t.clientX; ty0=t.clientY;
   }
-}, { passive: true });
-canvas.addEventListener('touchmove', e => {
-  const t = e.touches[0];
-  if (t.clientX > window.innerWidth * 0.4) {
-    yaw -= (t.clientX - touchStartX) * 0.003;
-    pitch -= (t.clientY - touchStartY) * 0.003;
-    pitch = Math.max(-0.5, Math.min(0.5, pitch));
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
+},{passive:true});
+
+// ─── COLLISION BOUNDS ─────────────────────────────────────────
+// Simple AABB walls: |x| < 3.5 = road, |x| > shopwall = blocked
+const wallBounds=[
+  {minX:-6, maxX:6, minZ:-999,maxZ:999},  // road corridor OK
+  // left alley
+  {minX:-21, maxX:-17, minZ:-999,maxZ:999},
+  // right alley
+  {minX:17, maxX:21, minZ:-999,maxZ:999},
+];
+
+// ─── PLAYER MOVEMENT ──────────────────────────────────────────
+const playerPos=new THREE.Vector3(0,1.7,0);
+const WALK=4.2, RUN=9.0;
+
+function updatePlayer(dt){
+  const speed = keys.sprint ? RUN : WALK;
+  const fwd = new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+  const rgt = new THREE.Vector3( Math.cos(yaw),0,-Math.sin(yaw));
+  const move= new THREE.Vector3();
+
+  if(keys.forward) move.add(fwd);
+  if(keys.back)    move.sub(fwd);
+  if(keys.right)   move.add(rgt);
+  if(keys.left)    move.sub(rgt);
+
+  if(move.length()>0){
+    move.normalize().multiplyScalar(speed*dt);
+    const np = playerPos.clone().add(move);
+    // simple wall stop
+    np.x = Math.max(-22, Math.min(22, np.x));
+    np.z = Math.max(-145, Math.min(65, np.z));
+    // Block solid walls (shophouse bodies)
+    if(Math.abs(np.x)>6.2 && Math.abs(np.x)<15.5){
+      // in the 5-foot-way — allowed
+    }
+    if(Math.abs(np.x)>16.2) np.x = Math.sign(np.x)*16.2;
+    playerPos.copy(np);
   }
-}, { passive: true });
+  playerPos.y=1.7;
 
-// ============================================================
-// PLAYER MOVEMENT
-// ============================================================
-const playerPos = new THREE.Vector3(0, 1.7, 0);
-const velocity = new THREE.Vector3();
-const WALK_SPEED = 4.0;
-const RUN_SPEED = 8.5;
-
-function updatePlayer(dt) {
-  const speed = keys.sprint ? RUN_SPEED : WALK_SPEED;
-  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-  const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-  const move = new THREE.Vector3();
-
-  if (keys.forward) move.add(forward);
-  if (keys.back) move.sub(forward);
-  if (keys.right) move.add(right);
-  if (keys.left) move.sub(right);
-
-  if (move.length() > 0) {
-    move.normalize().multiplyScalar(speed * dt);
-    playerPos.add(move);
-  }
-
-  // Clamp to world bounds
-  playerPos.x = Math.max(-90, Math.min(90, playerPos.x));
-  playerPos.z = Math.max(-140, Math.min(60, playerPos.z));
-  playerPos.y = 1.7;
-
-  // Camera
   camera.position.copy(playerPos);
-  camera.rotation.order = 'YXZ';
-  camera.rotation.y = yaw;
-  camera.rotation.x = pitch;
+  camera.rotation.order='YXZ';
+  camera.rotation.y=yaw;
+  camera.rotation.x=pitch;
 
-  // Avatar follows player, slightly ahead in walk direction
-  const behindOffset = new THREE.Vector3(Math.sin(yaw) * 1.2, -1.7, Math.cos(yaw) * 1.2);
-  avatarGroup.position.copy(playerPos).add(behindOffset);
-  avatarGroup.rotation.y = yaw + Math.PI;
+  // Avatar behind camera
+  const behind=new THREE.Vector3(Math.sin(yaw)*1.2,0,Math.cos(yaw)*1.2);
+  const avPos=playerPos.clone().add(behind);
+  avPos.y=0;
+  avatarGroup.position.copy(avPos);
+  avatarGroup.rotation.y=yaw+Math.PI;
 
-  // Walk animation (bob limbs)
-  const isMoving = keys.forward || keys.back || keys.left || keys.right;
-  if (isMoving) {
-    const t = clock.getElapsedTime() * (keys.sprint ? 6 : 3.5);
-    legL.position.y = 0.12 + Math.sin(t) * 0.08;
-    legR.position.y = 0.12 - Math.sin(t) * 0.08;
-    armL.position.y = 1.02 - Math.sin(t) * 0.06;
-    armR.position.y = 1.02 + Math.sin(t) * 0.06;
-    // Slight body bob
-    avatarGroup.position.y += Math.sin(t * 2) * 0.02;
+  // Hide avatar if looking straight down
+  avatarGroup.visible = pitch < 0.3;
+
+  // Torch position — just ahead of camera
+  const tFwd=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
+  torchLight.position.copy(playerPos).addScaledVector(tFwd,0.4);
+  torchLight.position.y=playerPos.y-0.15;
+  torchLight.target.position.copy(playerPos).addScaledVector(tFwd,8);
+  torchLight.target.position.y=playerPos.y-0.3;
+  torchLight.target.updateMatrixWorld();
+
+  // Walk animation
+  const moving=keys.forward||keys.back||keys.left||keys.right;
+  if(moving){
+    const t2=clock.getElapsedTime()*(keys.sprint?6.5:3.8);
+    legL.position.y=0.12+Math.sin(t2)*0.09;
+    legR.position.y=0.12-Math.sin(t2)*0.09;
+    armL.position.y=1.03-Math.sin(t2)*0.06;
+    armR.position.y=1.03+Math.sin(t2)*0.06;
+    avatarGroup.position.y+=Math.sin(t2*2)*0.018;
   }
 }
 
-// ============================================================
-// HORROR SYSTEM
-// ============================================================
-const horrorOverlay = document.getElementById('horror-overlay');
-const nenekText = document.getElementById('nenek-text');
-const stillFrame = document.getElementById('still-frame');
-const stillCanvas = document.getElementById('still-canvas');
-const stillCtx = stillCanvas.getContext('2d');
-const stillText = document.getElementById('still-frame-text');
+// ─── AUDIO SYSTEM ─────────────────────────────────────────────
+let audioCtx=null, masterGain=null, audioStarted=false;
+let radioNode=null, footstepTimer=0, nenekSoundTimer=0;
+let nenekProximitySound=false;
+let torchOn=false;
 
-let horrorState = {
-  lastEvent: 0,
-  nextEventDelay: 20 + Math.random() * 30, // first event 20-50s in
-  nenekActive: false,
-  nenekPhase: 'idle',
-  nenekTarget: new THREE.Vector3(),
-  nenekTimer: 0,
-  stillFrameActive: false,
-  stillFrameTimer: 0,
-  ambientFlicker: 0,
+function initAudio(){
+  if(audioStarted) return;
+  audioStarted=true;
+  torchOn=true;
+  document.getElementById('torch-indicator').classList.add('on');
+  try{
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    masterGain=audioCtx.createGain();
+    masterGain.gain.value=0.3;
+    masterGain.connect(audioCtx.destination);
+
+    // ── LOW DRONE ──
+    function drone(freq,gain,detune){
+      const o=audioCtx.createOscillator();
+      const g=audioCtx.createGain();
+      const f=audioCtx.createBiquadFilter();
+      o.type='sawtooth'; o.frequency.value=freq;
+      if(detune) o.detune.value=detune;
+      f.type='lowpass'; f.frequency.value=180+Math.random()*80;
+      g.gain.value=gain;
+      const lfo=audioCtx.createOscillator();
+      const lg=audioCtx.createGain();
+      lfo.frequency.value=0.04+Math.random()*0.07; lg.gain.value=9;
+      lfo.connect(lg); lg.connect(o.detune);
+      o.connect(f); f.connect(g); g.connect(masterGain);
+      o.start(); lfo.start();
+    }
+    drone(55,0.10,0); drone(55.4,0.05,6); drone(27.5,0.07,-4);
+
+    // ── WIND ──
+    function wind(){
+      const buf=audioCtx.createBuffer(1,audioCtx.sampleRate*3,audioCtx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+      const src=audioCtx.createBufferSource();
+      src.buffer=buf; src.loop=true;
+      const f=audioCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=350; f.Q.value=0.4;
+      const g=audioCtx.createGain(); g.gain.value=0.025;
+      src.connect(f); f.connect(g); g.connect(masterGain);
+      src.start();
+    }
+    wind();
+
+    // ── DISTANT TRAFFIC HUM ──
+    function trafficHum(){
+      const o=audioCtx.createOscillator();
+      const g=audioCtx.createGain();
+      const f=audioCtx.createBiquadFilter();
+      o.type='sine'; o.frequency.value=68;
+      f.type='lowpass'; f.frequency.value=120;
+      g.gain.value=0.04;
+      o.connect(f); f.connect(g); g.connect(masterGain);
+      o.start();
+    }
+    trafficHum();
+
+    // ── RADIO — classic Malay P.Ramlee-era song (synthesized) ──
+    // Generates a simple pentatonic melody that loops, through heavy AM filtering
+    function buildRadio(){
+      const radioGain=audioCtx.createGain(); radioGain.gain.value=0.0;
+      const amFilter=audioCtx.createBiquadFilter(); amFilter.type='bandpass'; amFilter.frequency.value=1200; amFilter.Q.value=0.8;
+      const distortion=audioCtx.createWaveShaper();
+      const curve=new Float32Array(256);
+      for(let i=0;i<256;i++){ const x=i*2/256-1; curve[i]=x*(1.2+Math.abs(x)); }
+      distortion.curve=curve;
+
+      // Static noise for radio
+      const staticBuf=audioCtx.createBuffer(1,audioCtx.sampleRate*2,audioCtx.sampleRate);
+      const sd=staticBuf.getChannelData(0);
+      for(let i=0;i<sd.length;i++) sd[i]=(Math.random()*2-1)*0.15;
+      const staticSrc=audioCtx.createBufferSource();
+      staticSrc.buffer=staticBuf; staticSrc.loop=true;
+      const sGain=audioCtx.createGain(); sGain.gain.value=0.3;
+      staticSrc.connect(sGain); sGain.connect(radioGain);
+
+      // Melody oscillator (old Malay pentatonic)
+      const notes=[220,246,261,293,330,293,261,246]; // A3 pentatonic
+      let ni=0;
+      const melody=audioCtx.createOscillator();
+      melody.type='triangle';
+      melody.frequency.value=notes[0];
+      const mGain=audioCtx.createGain(); mGain.gain.value=0.12;
+      melody.connect(amFilter); amFilter.connect(distortion); distortion.connect(mGain); mGain.connect(radioGain);
+      melody.start(); staticSrc.start();
+
+      // Sequence the notes
+      let noteTime=audioCtx.currentTime;
+      function scheduleNotes(){
+        for(let n=0;n<16;n++){
+          melody.frequency.setValueAtTime(notes[ni%notes.length], noteTime);
+          mGain.gain.setValueAtTime(Math.random()>0.15?0.12:0, noteTime);
+          ni++;
+          noteTime+=0.35;
+        }
+        setTimeout(scheduleNotes, 5000);
+      }
+      scheduleNotes();
+
+      radioGain.connect(masterGain);
+      radioNode=radioGain;
+    }
+    buildRadio();
+
+    // ── CREAKS / GROANS ──
+    function scheduleCreak(){
+      const delay=6+Math.random()*18;
+      setTimeout(()=>{
+        if(!audioCtx) return;
+        const o=audioCtx.createOscillator();
+        const g=audioCtx.createGain();
+        o.type='sine';
+        o.frequency.setValueAtTime(160+Math.random()*60,audioCtx.currentTime);
+        o.frequency.exponentialRampToValueAtTime(55,audioCtx.currentTime+0.4);
+        g.gain.setValueAtTime(0.07,audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.5);
+        o.connect(g); g.connect(masterGain);
+        o.start(); o.stop(audioCtx.currentTime+0.55);
+        scheduleCreak();
+      }, delay*1000);
+    }
+    scheduleCreak();
+
+  }catch(e){ console.warn('Audio fail:',e); }
+}
+
+document.addEventListener('keydown',initAudio,{once:true});
+document.addEventListener('touchstart',initAudio,{once:true});
+document.addEventListener('click',initAudio,{once:true});
+
+// Footstep sound
+function playFootstep(){
+  if(!audioCtx||!masterGain) return;
+  const o=audioCtx.createOscillator();
+  const g=audioCtx.createGain();
+  const f=audioCtx.createBiquadFilter();
+  o.type='sine';
+  o.frequency.setValueAtTime(90+Math.random()*30,audioCtx.currentTime);
+  o.frequency.exponentialRampToValueAtTime(30,audioCtx.currentTime+0.12);
+  f.type='lowpass'; f.frequency.value=300;
+  g.gain.setValueAtTime(0.09,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.15);
+  o.connect(f); f.connect(g); g.connect(masterGain);
+  o.start(); o.stop(audioCtx.currentTime+0.18);
+}
+
+// Nenek laugh/cackle
+function playNenekLaugh(){
+  if(!audioCtx) return;
+  const times=[0,0.18,0.36,0.55,0.75];
+  times.forEach(t=>{
+    const o=audioCtx.createOscillator();
+    const g=audioCtx.createGain();
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(280+Math.random()*80,audioCtx.currentTime+t);
+    o.frequency.exponentialRampToValueAtTime(180,audioCtx.currentTime+t+0.14);
+    g.gain.setValueAtTime(0,audioCtx.currentTime+t);
+    g.gain.linearRampToValueAtTime(0.10,audioCtx.currentTime+t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+t+0.16);
+    const f=audioCtx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=800; f.Q.value=1.5;
+    o.connect(f); f.connect(g); g.connect(masterGain);
+    o.start(audioCtx.currentTime+t);
+    o.stop(audioCtx.currentTime+t+0.2);
+  });
+}
+
+// ─── HORROR STATE ─────────────────────────────────────────────
+const horrorOverlay = document.getElementById('horror-overlay');
+const subtitle      = document.getElementById('subtitle');
+const staticFrame   = document.getElementById('static-frame');
+const staticCanvas  = document.getElementById('static-canvas');
+const sCtx          = staticCanvas.getContext('2d');
+const staticMsg     = document.getElementById('static-msg');
+const nenekWarn     = document.getElementById('nenek-warn');
+
+const H={
+  lastEvent:0, nextDelay:18+Math.random()*25,
+  nenekActive:false, nenekPhase:'idle',
+  nenekTimer:0, staticActive:false, staticTimer:0,
+  flickerTimer:0, antennaBlink:0,
 };
 
-const horrorMessages = [
+const MSGS=[
   'AWAK TAHU DIA ADA DI BELAKANG AWAK',
   'JANGAN TOLEH',
   'DIA NAMPAK AWAK',
   'TINGGALKAN LORONG INI',
   '...',
-  'NENEK KEBAYAN',
-  'PULANG',
-  'JANGAN LARI',
+  'NENEK KEBAYAN MENUNGGU',
+  'PULANG. SEKARANG.',
+  'JANGAN LARI — DIA LAGI PANTAS',
+  'ADA YANG IKUT AWAK',
 ];
 
-function drawStillFrame(type) {
-  const w = stillCanvas.width, h = stillCanvas.height;
-  stillCtx.fillStyle = '#000';
-  stillCtx.fillRect(0, 0, w, h);
+// ─── STATIC FRAME DRAWINGS ────────────────────────────────────
+function drawStatic(type){
+  const W=staticCanvas.width, H2=staticCanvas.height;
+  sCtx.fillStyle='#000'; sCtx.fillRect(0,0,W,H2);
 
-  if (type === 'alley') {
-    // Procedural dark alley still frame
-    // Sky gradient
-    const skyGrad = stillCtx.createLinearGradient(0, 0, 0, h * 0.6);
-    skyGrad.addColorStop(0, '#06060a');
-    skyGrad.addColorStop(1, '#0c0c14');
-    stillCtx.fillStyle = skyGrad;
-    stillCtx.fillRect(0, 0, w, h * 0.6);
-
-    // Alley walls
-    stillCtx.fillStyle = '#0a0a0c';
-    stillCtx.fillRect(0, h * 0.1, w * 0.25, h);
-    stillCtx.fillRect(w * 0.75, h * 0.1, w * 0.25, h);
+  if(type==='alley'){
+    // Sky
+    const sky=sCtx.createLinearGradient(0,0,0,H2*0.55);
+    sky.addColorStop(0,'#070710'); sky.addColorStop(1,'#0f0f18');
+    sCtx.fillStyle=sky; sCtx.fillRect(0,0,W,H2*0.55);
+    // Alley walls (more detailed — concrete texture via rects)
+    sCtx.fillStyle='#0c0c10';
+    sCtx.fillRect(0,H2*0.05,W*0.22,H2);
+    sCtx.fillRect(W*0.78,H2*0.05,W*0.22,H2);
+    // Wall texture lines
+    sCtx.strokeStyle='#0e0e14'; sCtx.lineWidth=1;
+    for(let y=H2*0.1;y<H2;y+=12){ sCtx.beginPath(); sCtx.moveTo(0,y); sCtx.lineTo(W*0.22,y); sCtx.stroke(); }
+    for(let y=H2*0.1;y<H2;y+=12){ sCtx.beginPath(); sCtx.moveTo(W*0.78,y); sCtx.lineTo(W,y); sCtx.stroke(); }
     // Ground
-    stillCtx.fillStyle = '#080809';
-    stillCtx.fillRect(w * 0.25, h * 0.55, w * 0.5, h);
-
-    // Perspective lines (vanishing point)
-    stillCtx.strokeStyle = '#111116';
-    stillCtx.lineWidth = 1;
-    stillCtx.beginPath();
-    stillCtx.moveTo(w * 0.25, h * 0.55); stillCtx.lineTo(w * 0.45, h * 0.35);
-    stillCtx.moveTo(w * 0.75, h * 0.55); stillCtx.lineTo(w * 0.55, h * 0.35);
-    stillCtx.stroke();
-
-    // Lamp glow at end of alley
-    const glowGrad = stillCtx.createRadialGradient(w * 0.5, h * 0.3, 2, w * 0.5, h * 0.3, 60);
-    glowGrad.addColorStop(0, 'rgba(255,230,150,0.15)');
-    glowGrad.addColorStop(1, 'transparent');
-    stillCtx.fillStyle = glowGrad;
-    stillCtx.fillRect(0, 0, w, h);
-
-    // Dark figure silhouette at end of alley
-    stillCtx.fillStyle = '#000000';
-    stillCtx.fillRect(w * 0.47, h * 0.32, 6, 18);  // body
-    stillCtx.beginPath();
-    stillCtx.arc(w * 0.5, h * 0.30, 5, 0, Math.PI * 2);
-    stillCtx.fill();
-
-    // Grain noise
-    for (let i = 0; i < 2000; i++) {
-      const nx = Math.random() * w, ny = Math.random() * h;
-      const a = Math.random() * 0.06;
-      stillCtx.fillStyle = `rgba(255,255,255,${a})`;
-      stillCtx.fillRect(nx, ny, 1, 1);
+    sCtx.fillStyle='#090910'; sCtx.fillRect(W*0.22,H2*0.52,W*0.56,H2);
+    // Perspective edges
+    sCtx.strokeStyle='#181820'; sCtx.lineWidth=1;
+    sCtx.beginPath();
+    sCtx.moveTo(W*0.22,H2*0.52); sCtx.lineTo(W*0.44,H2*0.32);
+    sCtx.moveTo(W*0.78,H2*0.52); sCtx.lineTo(W*0.56,H2*0.32);
+    sCtx.stroke();
+    // Neon glow at vanishing point
+    const ng=sCtx.createRadialGradient(W*0.5,H2*0.28,1,W*0.5,H2*0.28,55);
+    ng.addColorStop(0,'rgba(0,200,100,0.15)'); ng.addColorStop(1,'transparent');
+    sCtx.fillStyle=ng; sCtx.fillRect(0,0,W,H2);
+    // Dark figure at end
+    sCtx.fillStyle='#000';
+    sCtx.beginPath(); sCtx.arc(W*0.5,H2*0.29,5,0,Math.PI*2); sCtx.fill();
+    sCtx.fillRect(W*0.497,H2*0.3,6,20);
+    // Overhead wires
+    sCtx.strokeStyle='#1a1a22'; sCtx.lineWidth=1;
+    for(let w=0;w<3;w++){
+      sCtx.beginPath();
+      sCtx.moveTo(W*0.22,H2*(0.25+w*0.04));
+      sCtx.quadraticCurveTo(W*0.5,H2*(0.3+w*0.04+0.04),W*0.78,H2*(0.25+w*0.04));
+      sCtx.stroke();
     }
+    // Longkang drain edge
+    sCtx.strokeStyle='#111118'; sCtx.lineWidth=2;
+    sCtx.beginPath(); sCtx.moveTo(W*0.28,H2*0.52); sCtx.lineTo(W*0.32,H2); sCtx.stroke();
+    sCtx.beginPath(); sCtx.moveTo(W*0.72,H2*0.52); sCtx.lineTo(W*0.68,H2); sCtx.stroke();
 
-    // Horizontal scan lines
-    stillCtx.fillStyle = 'rgba(0,0,0,0.3)';
-    for (let y = 0; y < h; y += 3) {
-      stillCtx.fillRect(0, y, w, 1);
+  } else if(type==='nenek'){
+    sCtx.fillStyle='#000'; sCtx.fillRect(0,0,W,H2);
+    // Dark street
+    sCtx.fillStyle='#0c0c12'; sCtx.fillRect(0,H2*0.42,W,H2);
+    sCtx.fillStyle='#060608'; sCtx.fillRect(0,0,W*0.18,H2); sCtx.fillRect(W*0.82,0,W*0.18,H2);
+    // Nenek silhouette — hunched
+    sCtx.fillStyle='#000';
+    sCtx.beginPath(); sCtx.ellipse(W*0.5,H2*0.52,20,28,-0.3,0,Math.PI*2); sCtx.fill();
+    sCtx.beginPath(); sCtx.arc(W*0.5-10,H2*0.39,13,0,Math.PI*2); sCtx.fill();
+    // White hair
+    sCtx.strokeStyle='rgba(210,210,190,0.45)'; sCtx.lineWidth=1;
+    for(let i=0;i<10;i++){
+      sCtx.beginPath();
+      sCtx.moveTo(W*0.5-10+(Math.random()-0.5)*22,H2*0.34);
+      sCtx.lineTo(W*0.5-10+(Math.random()-0.5)*32,H2*0.27);
+      sCtx.stroke();
     }
-
-  } else if (type === 'nenek') {
-    stillCtx.fillStyle = '#000';
-    stillCtx.fillRect(0, 0, w, h);
-
-    // Dark street scene
-    stillCtx.fillStyle = '#0a0a0e';
-    stillCtx.fillRect(0, h * 0.45, w, h);
-    stillCtx.fillStyle = '#050507';
-    stillCtx.fillRect(0, 0, w * 0.2, h);
-    stillCtx.fillRect(w * 0.8, 0, w * 0.2, h);
-
-    // Nenek silhouette — hunched, centre frame
-    stillCtx.fillStyle = '#000000';
-    // Body (hunched)
-    stillCtx.beginPath();
-    stillCtx.ellipse(w * 0.5, h * 0.52, 18, 25, -0.3, 0, Math.PI * 2);
-    stillCtx.fill();
-    // Head (forward tilt)
-    stillCtx.beginPath();
-    stillCtx.arc(w * 0.5 - 8, h * 0.40, 12, 0, Math.PI * 2);
-    stillCtx.fill();
-    // White hair wisps
-    stillCtx.strokeStyle = 'rgba(200,200,190,0.4)';
-    stillCtx.lineWidth = 1;
-    for (let i = 0; i < 8; i++) {
-      stillCtx.beginPath();
-      stillCtx.moveTo(w * 0.5 - 8 + (Math.random()-0.5)*20, h * 0.35);
-      stillCtx.lineTo(w * 0.5 - 8 + (Math.random()-0.5)*30, h * 0.28);
-      stillCtx.stroke();
-    }
-    // Long arm reaching toward viewer
-    stillCtx.fillStyle = '#0a0806';
-    stillCtx.beginPath();
-    stillCtx.moveTo(w * 0.5 + 15, h * 0.5);
-    stillCtx.lineTo(w * 0.5 + 60, h * 0.62);
-    stillCtx.lineTo(w * 0.5 + 55, h * 0.65);
-    stillCtx.lineTo(w * 0.5 + 8, h * 0.54);
-    stillCtx.fill();
-
-    // Eyes — just two faint points of light
-    const eyeGlow = stillCtx.createRadialGradient(w*0.5-12, h*0.40, 0, w*0.5-12, h*0.40, 5);
-    eyeGlow.addColorStop(0, 'rgba(255,200,100,0.7)');
-    eyeGlow.addColorStop(1, 'transparent');
-    stillCtx.fillStyle = eyeGlow;
-    stillCtx.fillRect(w*0.5-17, h*0.37, 10, 10);
-
-    const eyeGlow2 = stillCtx.createRadialGradient(w*0.5-4, h*0.40, 0, w*0.5-4, h*0.40, 5);
-    eyeGlow2.addColorStop(0, 'rgba(255,200,100,0.7)');
-    eyeGlow2.addColorStop(1, 'transparent');
-    stillCtx.fillStyle = eyeGlow2;
-    stillCtx.fillRect(w*0.5-9, h*0.37, 10, 10);
-
+    // Long reaching arm
+    sCtx.fillStyle='#080608';
+    sCtx.beginPath();
+    sCtx.moveTo(W*0.5+18,H2*0.50); sCtx.lineTo(W*0.5+68,H2*0.65);
+    sCtx.lineTo(W*0.5+62,H2*0.68); sCtx.lineTo(W*0.5+10,H2*0.54); sCtx.fill();
+    // Eyes — amber glow
+    [[-14,0],[0,0]].forEach(([dx])=>{
+      const eg=sCtx.createRadialGradient(W*0.5+dx-10,H2*0.39,0,W*0.5+dx-10,H2*0.39,6);
+      eg.addColorStop(0,'rgba(255,180,50,0.85)'); eg.addColorStop(1,'transparent');
+      sCtx.fillStyle=eg; sCtx.fillRect(W*0.5+dx-16,H2*0.36,12,12);
+    });
+    // Neon reflection on ground
+    const rg=sCtx.createLinearGradient(0,H2*0.42,0,H2);
+    rg.addColorStop(0,'rgba(0,180,80,0.06)'); rg.addColorStop(1,'transparent');
+    sCtx.fillStyle=rg; sCtx.fillRect(0,H2*0.42,W,H2);
     // Vignette
-    const vig = stillCtx.createRadialGradient(w*0.5, h*0.5, w*0.1, w*0.5, h*0.5, w*0.7);
-    vig.addColorStop(0, 'transparent');
-    vig.addColorStop(1, 'rgba(0,0,0,0.85)');
-    stillCtx.fillStyle = vig;
-    stillCtx.fillRect(0, 0, w, h);
-
-    // Film grain
-    for (let i = 0; i < 3000; i++) {
-      stillCtx.fillStyle = `rgba(255,255,255,${Math.random() * 0.04})`;
-      stillCtx.fillRect(Math.random()*w, Math.random()*h, 1, 1);
-    }
-    // Scan lines
-    stillCtx.fillStyle = 'rgba(0,0,0,0.25)';
-    for (let y = 0; y < h; y += 3) stillCtx.fillRect(0, y, w, 1);
+    const v=sCtx.createRadialGradient(W*0.5,H2*0.5,W*0.08,W*0.5,H2*0.5,W*0.72);
+    v.addColorStop(0,'transparent'); v.addColorStop(1,'rgba(0,0,0,0.9)');
+    sCtx.fillStyle=v; sCtx.fillRect(0,0,W,H2);
   }
+
+  // Grain
+  for(let i=0;i<2500;i++){
+    sCtx.fillStyle=`rgba(255,255,255,${Math.random()*0.045})`;
+    sCtx.fillRect(Math.random()*W,Math.random()*H2,1,1);
+  }
+  // Scanlines
+  sCtx.fillStyle='rgba(0,0,0,0.22)';
+  for(let y=0;y<H2;y+=3) sCtx.fillRect(0,y,W,1);
 }
 
-function triggerStillFrame(type, msg, duration) {
-  horrorState.stillFrameActive = true;
-  drawStillFrame(type);
-  stillText.textContent = msg || '';
-  stillFrame.classList.add('active');
-  horrorState.stillFrameTimer = duration || 2.5;
+function showStatic(type,msg,dur){
+  H.staticActive=true;
+  drawStatic(type);
+  staticMsg.textContent=msg||'';
+  staticFrame.classList.add('active');
+  H.staticTimer=dur||2.5;
 }
 
-function triggerNenekAppearance() {
-  // Place nenek far down the alley from player
-  const angleAhead = yaw + Math.PI + (Math.random() - 0.5) * 0.5;
-  const dist = 15 + Math.random() * 10;
+function spawnNenek(){
+  const ang=yaw+(Math.random()-0.5)*0.8; // in front, slight random offset
+  const dist=12+Math.random()*10;
   nenekGroup.position.set(
-    playerPos.x + Math.sin(angleAhead) * dist,
+    playerPos.x+Math.sin(ang)*dist,
     0,
-    playerPos.z + Math.cos(angleAhead) * dist
+    playerPos.z+Math.cos(ang)*dist
   );
-  nenekGroup.rotation.y = yaw + Math.PI; // face player
-  nenekGroup.visible = true;
-  horrorState.nenekActive = true;
-  horrorState.nenekPhase = 'still';
-  horrorState.nenekTimer = 1.5 + Math.random() * 2;
-
-  nenekText.textContent = 'NENEK KEBAYAN';
-  nenekText.classList.add('visible');
-  setTimeout(() => nenekText.classList.remove('visible'), 2500);
+  nenekGroup.rotation.y=yaw+Math.PI;
+  nenekGroup.visible=true;
+  H.nenekActive=true; H.nenekPhase='still'; H.nenekTimer=1.5+Math.random()*2;
+  subtitle.textContent='NENEK KEBAYAN';
+  subtitle.classList.add('visible');
+  setTimeout(()=>subtitle.classList.remove('visible'),3000);
+  // Turn on radio when nenek appears
+  if(radioNode) radioNode.gain.setTargetAtTime(0.18,audioCtx.currentTime,1.0);
 }
 
-function updateHorror(dt, elapsed) {
-  // Schedule random events
-  if (elapsed - horrorState.lastEvent > horrorState.nextEventDelay) {
-    horrorState.lastEvent = elapsed;
-    horrorState.nextEventDelay = 15 + Math.random() * 35;
-
-    const roll = Math.random();
-    if (roll < 0.35) {
-      // Lamp flicker event
-      horrorState.ambientFlicker = 3 + Math.random() * 4;
-    } else if (roll < 0.6) {
-      // Still frame — alley
-      triggerStillFrame('alley', horrorMessages[Math.floor(Math.random() * horrorMessages.length)], 2 + Math.random());
-    } else if (roll < 0.85) {
-      // Nenek appears
-      triggerNenekAppearance();
-    } else {
-      // Nenek still frame
-      triggerStillFrame('nenek', 'DIA NAMPAK AWAK', 3);
+function updateHorror(dt,elapsed){
+  if(!H.staticActive && !H.nenekActive){
+    if(elapsed-H.lastEvent>H.nextDelay){
+      H.lastEvent=elapsed;
+      H.nextDelay=12+Math.random()*30;
+      const r=Math.random();
+      if     (r<0.30) H.flickerTimer=3+Math.random()*4;
+      else if(r<0.55) showStatic('alley',MSGS[Math.floor(Math.random()*MSGS.length)],2+Math.random());
+      else if(r<0.80) spawnNenek();
+      else            showStatic('nenek','DIA NAMPAK AWAK',3);
     }
   }
 
-  // Lamp flicker
-  if (horrorState.ambientFlicker > 0) {
-    horrorState.ambientFlicker -= dt;
-    lampLights.forEach(l => {
-      if (Math.random() > 0.5) {
-        l.light.intensity = Math.random() * l.base;
-        if (l.lamp && l.lamp.material) {
-          l.lamp.material.emissiveIntensity = Math.random() * 0.6;
-        }
+  // Flicker
+  if(H.flickerTimer>0){
+    H.flickerTimer-=dt;
+    lampLights.forEach(l=>{
+      if(Math.random()>0.45){
+        l.light.intensity=Math.random()*l.base;
+        if(l.mesh&&l.mesh.material) l.mesh.material.emissiveIntensity=Math.random()*1.5;
       }
     });
-    if (Math.random() > 0.7) {
-      horrorOverlay.classList.add('flash');
-      setTimeout(() => horrorOverlay.classList.remove('flash'), 80);
-    }
+    if(Math.random()>0.75){ horrorOverlay.classList.add('flash'); setTimeout(()=>horrorOverlay.classList.remove('flash'),70); }
   } else {
-    // Normal flicker (subtle, always on)
-    const t = clock.getElapsedTime();
-    lampLights.forEach(l => {
-      const flicker = 0.92 + 0.08 * Math.sin(t * (l.phase + 2));
-      l.light.intensity = l.base * flicker;
+    const t=clock.getElapsedTime();
+    lampLights.forEach(l=>{
+      l.light.intensity=l.base*(0.90+0.10*Math.sin(t*l.phase));
     });
   }
 
-  // Still frame timer
-  if (horrorState.stillFrameActive) {
-    horrorState.stillFrameTimer -= dt;
-    if (horrorState.stillFrameTimer <= 0) {
-      horrorState.stillFrameActive = false;
-      stillFrame.classList.remove('active');
-    }
+  // Static frame
+  if(H.staticActive){
+    H.staticTimer-=dt;
+    if(H.staticTimer<=0){ H.staticActive=false; staticFrame.classList.remove('active'); }
   }
 
-  // Nenek movement logic
-  if (horrorState.nenekActive) {
-    horrorState.nenekTimer -= dt;
-    const toPlayer = new THREE.Vector3().subVectors(playerPos, nenekGroup.position);
-    const dist = toPlayer.length();
+  // Antenna blink
+  H.antennaBlink+=dt;
+  antennaLight.intensity=H.antennaBlink%2<0.15?0.8:0;
 
-    if (horrorState.nenekPhase === 'still') {
-      // Stands still, watching
-      if (horrorState.nenekTimer <= 0) {
-        horrorState.nenekPhase = 'walking';
-        horrorState.nenekTimer = 3 + Math.random() * 3;
-      }
-    } else if (horrorState.nenekPhase === 'walking') {
-      // Slow shuffle toward player
-      if (dist > 2) {
+  // Nenek logic
+  if(H.nenekActive){
+    H.nenekTimer-=dt;
+    const toPlayer=new THREE.Vector3().subVectors(playerPos,nenekGroup.position);
+    const dist=toPlayer.length();
+
+    // Proximity effects
+    if(dist<15){
+      nenekWarn.classList.add('visible');
+      // Radio gets louder closer
+      if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(Math.max(0,(15-dist)/15*0.22),audioCtx.currentTime,0.5);
+      // Nenek laugh every few seconds when close
+      nenekSoundTimer-=dt;
+      if(nenekSoundTimer<=0){ playNenekLaugh(); nenekSoundTimer=3+Math.random()*3; }
+    } else {
+      nenekWarn.classList.remove('visible');
+      nenekSoundTimer=Math.max(nenekSoundTimer,2);
+    }
+
+    if(H.nenekPhase==='still'){
+      if(H.nenekTimer<=0){ H.nenekPhase='walking'; H.nenekTimer=4+Math.random()*4; }
+    } else if(H.nenekPhase==='walking'){
+      if(dist>2){
         toPlayer.normalize();
-        nenekGroup.position.addScaledVector(toPlayer, 1.2 * dt);
-        nenekGroup.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
-        // Shuffle animation
-        nenekGroup.position.y = Math.abs(Math.sin(clock.getElapsedTime() * 3)) * 0.03;
+        nenekGroup.position.addScaledVector(toPlayer,1.3*dt);
+        nenekGroup.rotation.y=Math.atan2(toPlayer.x,toPlayer.z);
+        nenekGroup.position.y=Math.abs(Math.sin(clock.getElapsedTime()*2.5))*0.04;
       }
-      if (dist < 2.5 || horrorState.nenekTimer <= 0) {
-        // Vanish
-        nenekGroup.visible = false;
-        horrorState.nenekActive = false;
-        horrorState.nenekPhase = 'idle';
-        horrorOverlay.classList.add('red-flash');
-        setTimeout(() => horrorOverlay.classList.remove('red-flash'), 400);
+      if(dist<2.5||H.nenekTimer<=0){
+        nenekGroup.visible=false;
+        H.nenekActive=false; H.nenekPhase='idle';
+        nenekWarn.classList.remove('visible');
+        horrorOverlay.classList.add('red'); setTimeout(()=>horrorOverlay.classList.remove('red'),500);
+        if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(0,audioCtx.currentTime,1.5);
+        nenekSoundTimer=5;
       }
     }
 
-    // If player looks directly at nenek, it freezes
-    const toCam = new THREE.Vector3().subVectors(nenekGroup.position, camera.position).normalize();
-    const camDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
-    const dot = toCam.dot(camDir);
-    if (dot > 0.97 && dist < 20) {
-      horrorState.nenekPhase = 'still';
-      horrorState.nenekTimer = 1.5;
+    // Freeze when player looks at her
+    const toCam=new THREE.Vector3().subVectors(nenekGroup.position,camera.position).normalize();
+    const camDir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+    if(toCam.dot(camDir)>0.96&&dist<22){
+      H.nenekPhase='still'; H.nenekTimer=Math.max(H.nenekTimer,1.5);
+      if(radioNode&&audioCtx) radioNode.gain.setTargetAtTime(0.05,audioCtx.currentTime,0.3);
     }
   }
 }
 
-// ============================================================
-// AMBIENT AUDIO (Web Audio API)
-// ============================================================
-let audioCtx = null;
-let audioStarted = false;
-
-function initAudio() {
-  if (audioStarted) return;
-  audioStarted = true;
-  try {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const master = audioCtx.createGain();
-    master.gain.value = 0.25;
-    master.connect(audioCtx.destination);
-
-    // Low drone — ambient tension
-    function createDrone(freq, gain, detune) {
-      const osc = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.value = freq;
-      if (detune) osc.detune.value = detune;
-      g.gain.value = gain;
-      // Low-pass filter to make it muffled
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 200 + Math.random() * 100;
-      osc.connect(filter);
-      filter.connect(g);
-      g.connect(master);
-      osc.start();
-      // Slowly modulate
-      const lfo = audioCtx.createOscillator();
-      const lfoGain = audioCtx.createGain();
-      lfo.frequency.value = 0.05 + Math.random() * 0.08;
-      lfoGain.gain.value = 8;
-      lfo.connect(lfoGain);
-      lfoGain.connect(osc.detune);
-      lfo.start();
-      return osc;
-    }
-    createDrone(55, 0.12, 0);
-    createDrone(55.3, 0.06, 5);
-    createDrone(27.5, 0.08, -3);
-
-    // Distant wind
-    function createWind() {
-      const bufferSize = audioCtx.sampleRate * 2;
-      const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1);
-      const source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 400;
-      filter.Q.value = 0.5;
-      const windGain = audioCtx.createGain();
-      windGain.gain.value = 0.03;
-      source.connect(filter);
-      filter.connect(windGain);
-      windGain.connect(master);
-      source.start();
-    }
-    createWind();
-
-    // Random distant footstep / creak scheduler
-    function scheduleCreak() {
-      const delay = 8 + Math.random() * 20;
-      setTimeout(() => {
-        if (!audioCtx) return;
-        const osc = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(180 + Math.random() * 80, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.3);
-        g.gain.setValueAtTime(0.08, audioCtx.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-        osc.connect(g);
-        g.connect(master);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.5);
-        scheduleCreak();
-      }, delay * 1000);
-    }
-    scheduleCreak();
-
-  } catch(e) {
-    console.warn('Audio init failed:', e);
+// Torch toggle (T key)
+document.addEventListener('keydown',e=>{
+  if(e.key==='t'||e.key==='T'){
+    torchOn=!torchOn;
+    document.getElementById('torch-indicator').classList.toggle('on',torchOn);
+    torchLight.intensity=torchOn?2.8:0;
   }
+});
+
+// ─── FOOTSTEP TIMER ───────────────────────────────────────────
+function updateFootsteps(dt){
+  const moving=keys.forward||keys.back||keys.left||keys.right;
+  if(!moving){ footstepTimer=0; return; }
+  const interval=keys.sprint?0.28:0.45;
+  footstepTimer+=dt;
+  if(footstepTimer>=interval){ playFootstep(); footstepTimer=0; }
 }
 
-// Start audio on first user interaction
-document.addEventListener('keydown', initAudio, { once: true });
-document.addEventListener('touchstart', initAudio, { once: true });
-document.addEventListener('click', initAudio, { once: true });
+// ─── HUD ──────────────────────────────────────────────────────
+const timeEl=document.getElementById('time-display');
+const coordEl=document.getElementById('coords');
+let gameMin=3*60+17, lastHUD=0;
 
-// ============================================================
-// HUD UPDATES
-// ============================================================
-const timeDisplay = document.getElementById('time-display');
-const coordsDisplay = document.getElementById('coords');
-let gameMinutes = 3 * 60 + 17; // start at 3:17 AM
-let lastHUDUpdate = 0;
-
-function updateHUD(elapsed) {
-  if (elapsed - lastHUDUpdate < 1) return;
-  lastHUDUpdate = elapsed;
-  gameMinutes = (gameMinutes + 1) % (24 * 60);
-  const h = Math.floor(gameMinutes / 60).toString().padStart(2, '0');
-  const m = (gameMinutes % 60).toString().padStart(2, '0');
-  const suffix = gameMinutes < 12 * 60 ? 'AM' : 'PM';
-  const displayH = gameMinutes % (12 * 60) === 0 ? 12 : Math.floor((gameMinutes % (12 * 60)) / 60);
-  timeDisplay.textContent = `${displayH.toString().padStart(2,'0')}:${m} ${suffix}`;
-
-  // Fake GPS drift
-  const lat = (3.1390 + playerPos.z * 0.00002).toFixed(4);
-  const lon = (101.6869 + playerPos.x * 0.00002).toFixed(4);
-  coordsDisplay.textContent = `${lat}° N, ${lon}° E`;
+function updateHUD(elapsed){
+  if(elapsed-lastHUD<1) return;
+  lastHUD=elapsed; gameMin=(gameMin+1)%(24*60);
+  const h12=gameMin%(12*60); const dh=h12===0?12:Math.floor(h12/60);
+  const dm=(gameMin%60).toString().padStart(2,'0');
+  const sfx=gameMin<12*60?'AM':'PM';
+  timeEl.textContent=`${dh.toString().padStart(2,'0')}:${dm} ${sfx}`;
+  const lat=(3.1390+playerPos.z*0.000018).toFixed(4);
+  const lon=(101.6869+playerPos.x*0.000018).toFixed(4);
+  coordEl.textContent=`${lat}° N, ${lon}° E`;
 }
 
-// ============================================================
-// CLOUD ANIMATION
-// ============================================================
-function updateClouds(dt) {
-  clouds.forEach(c => {
-    c.mesh.position.x += c.speed * dt;
-    if (c.mesh.position.x > 160) c.mesh.position.x = -160;
-  });
+// ─── CLOUDS ───────────────────────────────────────────────────
+function updateClouds(dt){
+  clouds.forEach(c=>{ c.mesh.position.x+=c.speed*dt; if(c.mesh.position.x>170) c.mesh.position.x=-170; });
 }
 
-// ============================================================
-// CONTROLS HINT FADE
-// ============================================================
-const controlsHint = document.getElementById('controls-hint');
-let hintTimer = 5;
-let hintFaded = false;
+// ─── HINT FADE ────────────────────────────────────────────────
+const hint=document.getElementById('hint');
+let hintT=5, hintDone=false;
 
-// ============================================================
-// MAIN LOOP
-// ============================================================
-advanceLoad(90, 'hampir siap...');
+// ─── MAIN LOOP ────────────────────────────────────────────────
+setLoad(92,'hampir siap...');
 
-function animate() {
+let prevTime=0;
+function animate(timestamp){
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.05);
-  const elapsed = clock.getElapsedTime();
+  const elapsed=clock.getElapsedTime();
+  const dt=Math.min((timestamp-prevTime)/1000,0.05);
+  prevTime=timestamp;
 
   updatePlayer(dt);
   updateClouds(dt);
-  updateHorror(dt, elapsed);
+  updateHorror(dt,elapsed);
   updateHUD(elapsed);
+  updateFootsteps(dt);
 
-  // Fade controls hint
-  if (!hintFaded) {
-    hintTimer -= dt;
-    if (hintTimer <= 0) {
-      controlsHint.style.opacity = '0';
-      hintFaded = true;
-    }
-  }
+  // Torch
+  torchLight.intensity = torchOn ? 2.8+Math.sin(elapsed*8)*0.05 : 0;
 
-  renderer.render(scene, camera);
+  // Hint
+  if(!hintDone){ hintT-=dt; if(hintT<=0){ hint.style.opacity='0'; hintDone=true; } }
+
+  renderer.render(scene,camera);
 }
 
-// ============================================================
-// WINDOW RESIZE
-// ============================================================
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth,window.innerHeight);
 });
 
-// ============================================================
-// LAUNCH
-// ============================================================
-advanceLoad(100, 'selamat datang ke kawasan');
-
-setTimeout(() => {
-  const loadEl = document.getElementById('loading');
-  loadEl.style.opacity = '0';
-  setTimeout(() => { loadEl.style.display = 'none'; }, 1000);
-  animate();
-}, 1200);
+// ─── LAUNCH ───────────────────────────────────────────────────
+setLoad(100,'selamat datang ke kawasan');
+setTimeout(()=>{
+  const lo=document.getElementById('loading');
+  lo.style.opacity='0';
+  setTimeout(()=>lo.style.display='none',1200);
+  requestAnimationFrame(animate);
+},1400);
 
 })();
 </script>
