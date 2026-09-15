@@ -124,18 +124,22 @@
   /* ---------- TOUCH CONTROLS ---------- */
   #touch-controls { position:fixed; inset:0; z-index:25; display:none; pointer-events:none; }
   #touch-controls.active { display:block; }
-  #joy-zone { position:absolute; left:0; bottom:0; width:45%; height:55%; pointer-events:all; }
   #look-zone { position:absolute; right:0; bottom:0; width:55%; height:100%; pointer-events:all; }
-  #joy-base {
-    position:absolute; width:110px; height:110px; border-radius:50%;
-    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18);
-    display:none;
+
+  /* Nagaloka-style directional pad: forward / back / left / right as discrete buttons */
+  #dpad { position:absolute; left:22px; bottom:26px; width:170px; height:170px; pointer-events:all; }
+  .dbtn {
+    position:absolute; width:56px; height:56px; border-radius:10px;
+    background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.2);
+    display:flex; align-items:center; justify-content:center;
+    color:#c9c2b2; font-size:20px; user-select:none; -webkit-user-select:none;
   }
-  #joy-knob {
-    position:absolute; width:46px; height:46px; border-radius:50%;
-    background:rgba(201,194,178,0.35); border:1px solid rgba(201,194,178,0.5);
-    left:32px; top:32px;
-  }
+  .dbtn.pressed { background:rgba(255,178,102,0.3); border-color:rgba(255,178,102,0.55); }
+  #btn-fwd   { left:57px; top:0; }
+  #btn-back  { left:57px; top:114px; }
+  #btn-left  { left:0; top:57px; }
+  #btn-right { left:114px; top:57px; }
+
   .tbtn {
     position:absolute; pointer-events:all; border-radius:50%;
     display:flex; align-items:center; justify-content:center;
@@ -171,7 +175,7 @@
   <div id="flag-strip">
     <div style="background:#2c4a8a"></div><div style="background:#e9e6de"></div><div style="background:#7c2530"></div>
   </div>
-  <div id="start-prompt">CLICK TO DESCEND</div>
+  <div id="start-prompt">MASUK</div>
   <div id="lore">Beneath the PPR, the old ossuary has been wired for something that isn't archaeology. Nenek Kebayan's bones were the first thing they dug up. They were not the last thing that answered.</div>
 </div>
 
@@ -217,7 +221,12 @@
 <div id="mobile-note">WASD MOVE · MOUSE LOOK · CLICK FIRE · SHIFT SPRINT · CTRL CROUCH · R RELOAD · SPACE JUMP</div>
 
 <div id="touch-controls">
-  <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+  <div id="dpad">
+    <div id="btn-fwd" class="dbtn">▲</div>
+    <div id="btn-back" class="dbtn">▼</div>
+    <div id="btn-left" class="dbtn">◄</div>
+    <div id="btn-right" class="dbtn">►</div>
+  </div>
   <div id="look-zone"></div>
   <div id="btn-fire" class="tbtn">FIRE</div>
   <div id="btn-jump" class="tbtn">JUMP</div>
@@ -284,16 +293,25 @@
     return buf;
   }
   function playShot(){
+    // Body: filtered noise burst — beefed up for a punchier, louder report
     const src = actx.createBufferSource();
-    src.buffer = noiseBuffer(0.15);
-    const filt = actx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=2200;
-    const gain = actx.createGain(); gain.gain.setValueAtTime(0.5, actx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.15);
+    src.buffer = noiseBuffer(0.2);
+    const filt = actx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=3000;
+    const gain = actx.createGain(); gain.gain.setValueAtTime(0.85, actx.currentTime); gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.2);
     src.connect(filt); filt.connect(gain); gain.connect(actx.destination);
     src.start();
-    const osc = actx.createOscillator(); osc.type='square'; osc.frequency.setValueAtTime(120, actx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, actx.currentTime+0.1);
-    const og = actx.createGain(); og.gain.setValueAtTime(0.3, actx.currentTime); og.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.1);
-    osc.connect(og); og.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.1);
+    // Low thump for weight
+    const osc = actx.createOscillator(); osc.type='square'; osc.frequency.setValueAtTime(130, actx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(35, actx.currentTime+0.12);
+    const og = actx.createGain(); og.gain.setValueAtTime(0.55, actx.currentTime); og.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.12);
+    osc.connect(og); og.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.12);
+    // Sharp high-frequency crack for the transient snap of a real shot
+    const crackSrc = actx.createBufferSource();
+    crackSrc.buffer = noiseBuffer(0.04);
+    const crackFilt = actx.createBiquadFilter(); crackFilt.type='highpass'; crackFilt.frequency.value=2200;
+    const crackGain = actx.createGain(); crackGain.gain.setValueAtTime(0.7, actx.currentTime); crackGain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.04);
+    crackSrc.connect(crackFilt); crackFilt.connect(crackGain); crackGain.connect(actx.destination);
+    crackSrc.start();
   }
   function playHit(){
     const osc = actx.createOscillator(); osc.type='sawtooth'; osc.frequency.setValueAtTime(340, actx.currentTime);
@@ -319,9 +337,78 @@
     const g = actx.createGain(); g.gain.setValueAtTime(0.12, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.6);
     osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.6);
   }
+  //=================== EERIE CHOIR (sustained dissonant drones through a generated reverb) ===================
+  function makeReverbImpulse(duration, decay){
+    const rate = actx.sampleRate;
+    const length = Math.floor(rate*duration);
+    const impulse = actx.createBuffer(2, length, rate);
+    for(let ch=0; ch<2; ch++){
+      const data = impulse.getChannelData(ch);
+      for(let i=0;i<length;i++){
+        data[i] = (Math.random()*2-1) * Math.pow(1-i/length, decay);
+      }
+    }
+    return impulse;
+  }
+  let choirStarted = false;
+  function startChoir(){
+    if(choirStarted) return; choirStarted = true;
+    const convolver = actx.createConvolver();
+    convolver.buffer = makeReverbImpulse(5, 2.2);
+    const wetGain = actx.createGain(); wetGain.gain.value = 1.1;
+    const choirBus = actx.createGain(); choirBus.gain.value = 1.15;
+    choirBus.connect(convolver); convolver.connect(wetGain); wetGain.connect(actx.destination);
+    choirBus.connect(actx.destination);
+
+    // dissonant, slowly-shifting cluster — deliberately unresolved, not a clean chord
+    const baseFreqs = [110.0, 130.81, 155.56, 174.61];
+    const voices = [];
+    baseFreqs.forEach((f,i)=>{
+      const osc = actx.createOscillator();
+      osc.type = i%2===0 ? 'sine' : 'triangle';
+      osc.frequency.value = f;
+      const vibrato = actx.createOscillator();
+      vibrato.frequency.value = 0.09 + Math.random()*0.18;
+      const vibratoGain = actx.createGain();
+      vibratoGain.gain.value = 1.0 + Math.random()*1.2;
+      vibrato.connect(vibratoGain); vibratoGain.connect(osc.frequency);
+      vibrato.start();
+      const voiceGain = actx.createGain(); voiceGain.gain.value = 0;
+      osc.connect(voiceGain); voiceGain.connect(choirBus);
+      osc.start();
+      voices.push(voiceGain);
+    });
+    // a fifth voice that slowly glides pitch up and down — a distant, wordless wail
+    const wailOsc = actx.createOscillator(); wailOsc.type='sine'; wailOsc.frequency.value = 220;
+    const wailGain = actx.createGain(); wailGain.gain.value = 0;
+    wailOsc.connect(wailGain); wailGain.connect(choirBus); wailOsc.start();
+    voices.push(wailGain);
+    function glideWail(){
+      const t = actx.currentTime;
+      const target = 190 + Math.random()*90;
+      wailOsc.frequency.linearRampToValueAtTime(target, t + 6 + Math.random()*5);
+    }
+    glideWail(); setInterval(glideWail, 9000);
+
+    const now = actx.currentTime;
+    voices.forEach((g,i)=>{
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.06+Math.random()*0.03, now+4+i*1.3);
+    });
+    // slow eerie "breathing" swell, re-targeted periodically so it never settles
+    setInterval(()=>{
+      const t = actx.currentTime;
+      voices.forEach(g=>{
+        const target = 0.035+Math.random()*0.06;
+        g.gain.linearRampToValueAtTime(target, t+5+Math.random()*4);
+      });
+    }, 7000);
+  }
+
   let ambientStarted = false;
   function startAmbient(){
     if(ambientStarted) return; ambientStarted = true;
+    startChoir();
     const drone = actx.createOscillator(); drone.type='sine'; drone.frequency.value=48;
     const dg = actx.createGain(); dg.gain.value = 0.045;
     drone.connect(dg); dg.connect(actx.destination); drone.start();
@@ -341,7 +428,7 @@
   //=================== THREE.JS SETUP ===================
   const scene = new THREE.Scene();
   const FOG_COLOR = 0x07070a;
-  scene.fog = new THREE.FogExp2(FOG_COLOR, 0.038);
+  scene.fog = new THREE.FogExp2(FOG_COLOR, 0.05);
   scene.background = new THREE.Color(FOG_COLOR);
 
   const camera = new THREE.PerspectiveCamera(72, window.innerWidth/window.innerHeight, 0.1, 200);
@@ -385,23 +472,94 @@
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     return tex;
   }
-  const wallTex = makeStoneTexture([70,64,56], '#0c0a08', 256);
+  const wallTex = makeStoneTexture([96,68,52], '#170e09', 256);
   wallTex.repeat.set(2,2);
-  const floorTex = makeStoneTexture([48,44,40], '#050403', 256);
+  const floorTex = makeStoneTexture([70,50,38], '#0e0805', 256);
   floorTex.repeat.set(3,3);
 
   const wallMat = new THREE.MeshStandardMaterial({ map:wallTex, roughness:0.95, metalness:0.05 });
   const floorMat = new THREE.MeshStandardMaterial({ map:floorTex, roughness:1, metalness:0 });
-  const ceilMat = new THREE.MeshStandardMaterial({ color:0x0a0908, roughness:1 });
+  const ceilMat = new THREE.MeshStandardMaterial({ color:0x140c08, roughness:1 });
 
-  //=================== LIGHTING ===================
-  const hemi = new THREE.HemisphereLight(0x3d4552, 0x0a0806, 0.65);
+  //=================== PROCEDURAL OSSUARY WALL (skulls + stacked bones, Paris-catacombs style) ===================
+  function makeBoneNicheTexture(w, h){
+    const c = document.createElement('canvas'); c.width=w||512; c.height=h||320;
+    const ctx = c.getContext('2d');
+    // background matches the warm dirt/stone tone so bones read as embedded in the wall, not painted on
+    ctx.fillStyle = '#1a1008'; ctx.fillRect(0,0,c.width,c.height);
+    for(let i=0;i<900;i++){
+      ctx.fillStyle = `rgba(${40+Math.random()*30|0},${28+Math.random()*20|0},${18+Math.random()*14|0},${0.4+Math.random()*0.4})`;
+      ctx.fillRect(Math.random()*c.width, Math.random()*c.height, 3, 3);
+    }
+    // a sparse scatter of small bones low in the niche, half-buried rather than stacked wall-to-wall
+    const boneCount = 5 + Math.floor(Math.random()*4);
+    for(let i=0;i<boneCount;i++){
+      const x = 20+Math.random()*(c.width-40);
+      const y = c.height*0.55 + Math.random()*c.height*0.4;
+      const shade = 150+Math.random()*40;
+      ctx.fillStyle = `rgba(${shade*0.85|0},${shade*0.78|0},${shade*0.62|0},0.75)`;
+      ctx.save();
+      ctx.translate(x,y);
+      ctx.rotate((Math.random()-0.5)*1.4);
+      ctx.beginPath(); ctx.ellipse(0,0, 9+Math.random()*4, 3.5+Math.random()*1.5, 0,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    // one or two small, half-shadowed skulls — easy to miss unless you're looking
+    const skullCount = Math.random()<0.6 ? 1 : 2;
+    for(let i=0;i<skullCount;i++){
+      const sx = 40+Math.random()*(c.width-80), sy = c.height*0.5+Math.random()*c.height*0.35, sr = 11+Math.random()*4;
+      ctx.fillStyle = `rgba(${180+Math.random()*25|0},${170+Math.random()*20|0},${148+Math.random()*15|0},0.7)`;
+      ctx.beginPath(); ctx.arc(sx,sy,sr,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(10,6,4,0.7)';
+      ctx.beginPath(); ctx.ellipse(sx-sr*0.35,sy-sr*0.05,sr*0.2,sr*0.26,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(sx+sr*0.35,sy-sr*0.05,sr*0.2,sr*0.26,0,0,Math.PI*2); ctx.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    return tex;
+  }
+  const boneNicheMat = new THREE.MeshStandardMaterial({ map: makeBoneNicheTexture(512,320), roughness:0.95 });
+
+  //=================== PROCEDURAL GRAFFITI DECAL (tech-cult tags scrawled by whoever was down here first) ===================
+  function makeGraffitiTexture(){
+    const c = document.createElement('canvas'); c.width=512; c.height=256;
+    const ctx = c.getContext('2d');
+    const palettes = [
+      {c:'#39ff6a', glow:'rgba(57,255,106,0.5)'},
+      {c:'#c9414f', glow:'rgba(201,65,79,0.5)'},
+      {c:'#d8d2c2', glow:'rgba(216,210,194,0.35)'}
+    ];
+    const p = palettes[Math.floor(Math.random()*palettes.length)];
+    ctx.strokeStyle = p.c; ctx.fillStyle = p.c;
+    ctx.shadowColor = p.glow; ctx.shadowBlur = 14;
+    ctx.lineWidth = 5; ctx.lineCap='round';
+    const tags = ['KWSN','NENEK','SIGNAL','WAS HERE','DEPTH IX','DO NOT DIG','IT ANSWERS','KAWASAN'];
+    const tag = tags[Math.floor(Math.random()*tags.length)];
+    ctx.font = `italic bold ${40+Math.random()*20|0}px Georgia`;
+    ctx.save();
+    ctx.translate(30+Math.random()*40, 130+Math.random()*40);
+    ctx.rotate((Math.random()-0.5)*0.12);
+    ctx.fillText(tag, 0, 0);
+    ctx.restore();
+    // drips
+    for(let i=0;i<5;i++){
+      const x = 40+Math.random()*430, y = 150+Math.random()*20;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+(Math.random()-0.5)*6, y+20+Math.random()*40); ctx.stroke();
+    }
+    // scrawled sigil / arrow accent
+    ctx.beginPath();
+    ctx.moveTo(60,60); ctx.lineTo(120,40); ctx.lineTo(180,60); ctx.stroke();
+    const tex = new THREE.CanvasTexture(c);
+    return tex;
+  }
+
+  //=================== LIGHTING (subtle — torch/flashlight carve the dark, ambient stays low) ===================
+  const hemi = new THREE.HemisphereLight(0x4a342a, 0x0a0503, 0.42);
   scene.add(hemi);
-  const ambientFill = new THREE.AmbientLight(0x2a2620, 0.35);
+  const ambientFill = new THREE.AmbientLight(0x2e1f14, 0.22);
   scene.add(ambientFill);
 
-  //=================== MAZE GENERATION (grid-based catacomb) ===================
-  const CELL = 6, GRID = 11; // odd size for maze algo
+  //=================== MAZE GENERATION (grid-based catacomb — tight ossuary tunnels) ===================
+  const CELL = 4.4, GRID = 13; // smaller cell = tighter passage; bigger grid keeps the level a similar overall size
   const HALF = Math.floor(GRID/2);
   // 1 = wall, 0 = open
   let grid = [];
@@ -418,8 +576,8 @@
     }
   }
   carve(1,1);
-  // punch extra loops for non-linear FPS flow
-  for(let i=0;i<14;i++){
+  // a handful of extra loop punches — kept low so it still reads as a tunnel network, not open rooms
+  for(let i=0;i<8;i++){
     const x = 1+Math.floor(Math.random()*(GRID-2));
     const z = 1+Math.floor(Math.random()*(GRID-2));
     if(grid[x][z]===1) grid[x][z]=0;
@@ -429,9 +587,48 @@
   scene.add(worldGroup);
   const flickerObjects = [];
 
-  const wallGeo = new THREE.BoxGeometry(CELL, 3.4, CELL);
+  //=================== EUROPEAN MINE-STYLE WOODEN SUPPORT FRAMES (declared before the maze loop uses them) ===================
+  function makeWoodTexture(){
+    const c = document.createElement('canvas'); c.width=64; c.height=128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#3d2618'; ctx.fillRect(0,0,c.width,c.height);
+    for(let i=0;i<26;i++){
+      ctx.strokeStyle = `rgba(18,9,4,${0.2+Math.random()*0.35})`;
+      ctx.lineWidth = 1+Math.random()*1.5;
+      ctx.beginPath();
+      const x = Math.random()*c.width;
+      ctx.moveTo(x,0); ctx.lineTo(x+(Math.random()-0.5)*8, c.height);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(1,2);
+    return tex;
+  }
+  const woodMat = new THREE.MeshStandardMaterial({ map: makeWoodTexture(), roughness:0.92 });
+  function addSupportBeam(x, z, axis){
+    const g = new THREE.Group();
+    const span = CELL - 0.6;
+    const postGeo = new THREE.BoxGeometry(0.16, 2.5, 0.16);
+    const crossGeo = new THREE.BoxGeometry(axis==='x' ? 0.16 : span, 0.18, axis==='x' ? span : 0.16);
+    const postA = new THREE.Mesh(postGeo, woodMat);
+    const postB = new THREE.Mesh(postGeo, woodMat);
+    if(axis==='x'){
+      postA.position.set(0, 1.25, -span/2); postB.position.set(0, 1.25, span/2);
+    } else {
+      postA.position.set(-span/2, 1.25, 0); postB.position.set(span/2, 1.25, 0);
+    }
+    const cross = new THREE.Mesh(crossGeo, woodMat);
+    cross.position.set(0, 2.55, 0);
+    g.add(postA, postB, cross);
+    g.position.set(x, 0, z);
+    worldGroup.add(g);
+  }
+
+  const wallGeo = new THREE.BoxGeometry(CELL, 3.0, CELL);
   const floorGeo = new THREE.PlaneGeometry(CELL, CELL);
   const ceilGeo = new THREE.PlaneGeometry(CELL, CELL);
+  const nicheGeo = new THREE.PlaneGeometry(CELL-0.5, 2.2);
+  const graffitiGeo = new THREE.PlaneGeometry(CELL-0.7, (CELL-0.7)*0.5);
 
   const openCells = [];
   const wallColliders = []; // {minX,maxX,minZ,maxZ}
@@ -441,10 +638,33 @@
       const wx = (x-HALF)*CELL, wz = (z-HALF)*CELL;
       if(grid[x][z]===1){
         const wall = new THREE.Mesh(wallGeo, wallMat);
-        wall.position.set(wx, 1.7, wz);
+        wall.position.set(wx, 1.5, wz);
         wall.castShadow = true; wall.receiveShadow = true;
         worldGroup.add(wall);
         wallColliders.push({minX:wx-CELL/2, maxX:wx+CELL/2, minZ:wz-CELL/2, maxZ:wz+CELL/2});
+
+        // dress every corridor-facing wall surface: bone niche, graffiti tag, or bare stone
+        const faceDirs = [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]]; // [dx,dz,unused]
+        for(const [dx,dz] of faceDirs){
+          const nx = x+dx, nz = z+dz;
+          if(nx<0||nx>=GRID||nz<0||nz>=GRID) continue;
+          if(grid[nx][nz]!==0) continue; // only dress faces open to a walkable corridor
+          const roll = Math.random();
+          const faceCenter = new THREE.Vector3(wx+dx*(CELL/2+0.02), 1.5, wz+dz*(CELL/2+0.02));
+          const lookTarget = new THREE.Vector3(faceCenter.x+dx, faceCenter.y, faceCenter.z+dz);
+          if(roll < 0.30){
+            const niche = new THREE.Mesh(nicheGeo, boneNicheMat);
+            niche.position.copy(faceCenter);
+            niche.lookAt(lookTarget); niche.rotateY(Math.PI);
+            worldGroup.add(niche);
+          } else if(roll < 0.46){
+            const tagMat = new THREE.MeshBasicMaterial({ map:makeGraffitiTexture(), transparent:true, depthWrite:false });
+            const tag = new THREE.Mesh(graffitiGeo, tagMat);
+            tag.position.copy(faceCenter); tag.position.y = 1.55;
+            tag.lookAt(lookTarget); tag.rotateY(Math.PI);
+            worldGroup.add(tag);
+          }
+        }
       } else {
         openCells.push({x:wx, z:wz});
         const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -452,22 +672,29 @@
         floor.receiveShadow = true;
         worldGroup.add(floor);
         const ceil = new THREE.Mesh(ceilGeo, ceilMat);
-        ceil.rotation.x = Math.PI/2; ceil.position.set(wx, 3.4, wz);
+        ceil.rotation.x = Math.PI/2; ceil.position.set(wx, 3.0, wz);
         worldGroup.add(ceil);
 
-        // sparse decoration: bones, tech consoles, flicker torches
+        // European mine-style wooden support frames, spanning whichever way the corridor runs
+        if(Math.random()<0.20){
+          const runsX = (grid[x-1]&&grid[x-1][z]===0) || (grid[x+1]&&grid[x+1][z]===0);
+          addSupportBeam(wx, wz, runsX ? 'x' : 'z');
+        }
+
+        // sparse decoration: bones, tech consoles, flicker torches — subtler now that walls carry their own bone niches
         const r = Math.random();
-        if(r<0.10){
+        if(r<0.08){
           addTechConsole(wx, wz);
-        } else if(r<0.22){
+        } else if(r<0.16){
           addBonePile(wx, wz);
         }
-        if(Math.random()<0.30){
-          addTorch(wx + (Math.random()-0.5)*3, wz + (Math.random()-0.5)*3);
+        if(Math.random()<0.22){
+          addTorch(wx + (Math.random()-0.5)*1.5, wz + (Math.random()-0.5)*1.5);
         }
       }
     }
   }
+
 
   function addBonePile(x,z){
     const g = new THREE.Group();
@@ -502,7 +729,7 @@
   }
 
   function addTorch(x,z){
-    const light = new THREE.PointLight(0xff8c42, 1.8, 11, 2);
+    const light = new THREE.PointLight(0xff8c42, 1.25, 8, 2);
     light.position.set(x, 2.4, z);
     worldGroup.add(light);
     const emberMat = new THREE.MeshStandardMaterial({ color:0xff7a33, emissive:0xff5522, emissiveIntensity:1.5 });
@@ -532,17 +759,31 @@
   const muzzleLight = new THREE.PointLight(0xfff0c0, 0, 4);
   muzzleLight.position.set(0.22,-0.22,-0.82);
   weaponGroup.add(muzzleLight);
-  camera.add(weaponGroup);
 
-  // Player flashlight — mounted on the weapon, points where the camera looks
-  const flashlight = new THREE.SpotLight(0xfff2d6, 1.6, 22, Math.PI/6.5, 0.45, 1.4);
-  flashlight.position.set(0.22, 0, -0.2);
-  camera.add(flashlight);
+  // Torch housing — a small cylindrical fixture rail-mounted above the barrel, like a real weapon light
+  const torchBodyMat = new THREE.MeshStandardMaterial({ color:0x2a2a28, metalness:0.7, roughness:0.35 });
+  const torchHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.16,10), torchBodyMat);
+  torchHousing.rotation.x = Math.PI/2;
+  torchHousing.position.set(0.22,-0.155,-0.62);
+  weaponGroup.add(torchHousing);
+  const torchLensMat = new THREE.MeshStandardMaterial({ color:0xfff2c8, emissive:0xffb066, emissiveIntensity:2.2 });
+  const torchLens = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.01,10), torchLensMat);
+  torchLens.rotation.x = Math.PI/2;
+  torchLens.position.set(0.22,-0.155,-0.70);
+  weaponGroup.add(torchLens);
+
+  // Player torch — mounted directly on the weapon (child of weaponGroup, not the camera)
+  // so it physically bobs, sways and kicks with the rifle instead of floating independently.
+  const flashlight = new THREE.SpotLight(0xffb877, 1.3, 13, Math.PI/7.5, 0.55, 1.8);
+  const flashlightBaseIntensity = flashlight.intensity;
+  flashlight.position.set(0.22, -0.155, -0.70);
+  weaponGroup.add(flashlight);
   const flashlightTarget = new THREE.Object3D();
-  flashlightTarget.position.set(0, 0, -10);
-  camera.add(flashlightTarget);
+  flashlightTarget.position.set(0.22, -0.155, -10);
+  weaponGroup.add(flashlightTarget);
   flashlight.target = flashlightTarget;
 
+  camera.add(weaponGroup);
   scene.add(camera);
 
   //=================== ENEMIES ===================
@@ -639,51 +880,23 @@
   });
 
   //=================== TOUCH CONTROL WIRING ===================
-  let touchMove = {x:0, y:0}; // -1..1 each axis
-  let touchLookDX = 0, touchLookDY = 0;
+  const touchDpad = { fwd:false, back:false, left:false, right:false }; // Nagaloka-style discrete directional buttons
   let touchFireHeld = false;
 
   if(isTouch){
     touchControls.classList.add('active');
 
-    // Left joystick
-    const joyZone = document.getElementById('joy-zone');
-    const joyBase = document.getElementById('joy-base');
-    const joyKnob = document.getElementById('joy-knob');
-    let joyId = null, joyCenter = {x:0,y:0};
-    const JOY_RADIUS = 55;
-
-    joyZone.addEventListener('touchstart', e=>{
-      const t = e.changedTouches[0];
-      joyId = t.identifier;
-      joyCenter = {x:t.clientX, y:t.clientY};
-      joyBase.style.left = (t.clientX-55)+'px';
-      joyBase.style.top = (t.clientY-55)+'px';
-      joyBase.style.display = 'block';
-      e.preventDefault();
-    }, {passive:false});
-    joyZone.addEventListener('touchmove', e=>{
-      for(const t of e.changedTouches){
-        if(t.identifier!==joyId) continue;
-        let dx = t.clientX-joyCenter.x, dy = t.clientY-joyCenter.y;
-        const dist = Math.min(JOY_RADIUS, Math.hypot(dx,dy));
-        const ang = Math.atan2(dy,dx);
-        const kx = Math.cos(ang)*dist, ky = Math.sin(ang)*dist;
-        joyKnob.style.left = (32+kx)+'px'; joyKnob.style.top = (32+ky)+'px';
-        touchMove.x = kx/JOY_RADIUS; touchMove.y = ky/JOY_RADIUS;
-      }
-      e.preventDefault();
-    }, {passive:false});
-    function joyEnd(e){
-      for(const t of e.changedTouches){
-        if(t.identifier!==joyId) continue;
-        joyId = null; joyBase.style.display='none';
-        joyKnob.style.left='32px'; joyKnob.style.top='32px';
-        touchMove.x=0; touchMove.y=0;
-      }
+    // Directional pad: four discrete buttons instead of an analog stick
+    function wireDpadButton(id, key){
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', e=>{ e.preventDefault(); touchDpad[key]=true; el.classList.add('pressed'); }, {passive:false});
+      el.addEventListener('touchend', ()=>{ touchDpad[key]=false; el.classList.remove('pressed'); });
+      el.addEventListener('touchcancel', ()=>{ touchDpad[key]=false; el.classList.remove('pressed'); });
     }
-    joyZone.addEventListener('touchend', joyEnd);
-    joyZone.addEventListener('touchcancel', joyEnd);
+    wireDpadButton('btn-fwd', 'fwd');
+    wireDpadButton('btn-back', 'back');
+    wireDpadButton('btn-left', 'left');
+    wireDpadButton('btn-right', 'right');
 
     // Right look zone (drag to look)
     const lookZone = document.getElementById('look-zone');
@@ -890,9 +1103,11 @@
       if(keys['KeyS']) move.sub(forward);
       if(keys['KeyA']) move.sub(right);
       if(keys['KeyD']) move.add(right);
-      if(isTouch && (Math.abs(touchMove.x)>0.08 || Math.abs(touchMove.y)>0.08)){
-        move.add(forward.clone().multiplyScalar(-touchMove.y));
-        move.add(right.clone().multiplyScalar(touchMove.x));
+      if(isTouch){
+        if(touchDpad.fwd) move.add(forward);
+        if(touchDpad.back) move.sub(forward);
+        if(touchDpad.left) move.sub(right);
+        if(touchDpad.right) move.add(right);
       }
       const moving = move.lengthSq()>0;
       if(moving){
@@ -977,6 +1192,8 @@
         if(l) l.intensity = (l.userData0||l.intensity) * (0.75+Math.random()*0.5);
       }
     }
+    // rifle torch — subtle handheld unsteadiness, like a real light on a moving weapon
+    flashlight.intensity = flashlightBaseIntensity * (0.9 + Math.sin(clock.elapsedTime*17)*0.04 + (Math.random()-0.5)*0.05);
 
     renderer.render(scene, camera);
   }
