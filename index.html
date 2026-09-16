@@ -258,6 +258,7 @@
   // Load Three.js with a CDN fallback in case cdnjs is blocked on this network.
   function loadScript(src, onload, onerror){
     const s = document.createElement('script');
+    s.crossOrigin = 'anonymous'; // lets the browser report real error detail from this library instead of a masked "Script error."
     s.src = src; s.onload = onload; s.onerror = onerror;
     document.head.appendChild(s);
   }
@@ -331,7 +332,23 @@
     const g = actx.createGain(); g.gain.setValueAtTime(0.35, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.25);
     src.connect(filt); filt.connect(g); g.connect(actx.destination); src.start();
   }
-  function playGrowl(){
+  function playGrowl(type){
+    if(type==='swarm'){
+      // quick, high, skittering chitter
+      const osc = actx.createOscillator(); osc.type='square'; osc.frequency.setValueAtTime(700+Math.random()*300, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(220, actx.currentTime+0.12);
+      const g = actx.createGain(); g.gain.setValueAtTime(0.06, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.12);
+      osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+0.12);
+      return;
+    }
+    if(type==='ghost'){
+      // long, low, hollow moan
+      const osc = actx.createOscillator(); osc.type='sine'; osc.frequency.setValueAtTime(90+Math.random()*20, actx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(55, actx.currentTime+1.4);
+      const g = actx.createGain(); g.gain.setValueAtTime(0.001, actx.currentTime); g.gain.linearRampToValueAtTime(0.14, actx.currentTime+0.4); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+1.4);
+      osc.connect(g); g.connect(actx.destination); osc.start(); osc.stop(actx.currentTime+1.4);
+      return;
+    }
     const osc = actx.createOscillator(); osc.type='sawtooth'; osc.frequency.setValueAtTime(70+Math.random()*30, actx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(30, actx.currentTime+0.6);
     const g = actx.createGain(); g.gain.setValueAtTime(0.12, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+0.6);
@@ -427,7 +444,7 @@
 
   //=================== THREE.JS SETUP ===================
   const scene = new THREE.Scene();
-  const FOG_COLOR = 0x07070a;
+  const FOG_COLOR = 0x0b0e0c;
   scene.fog = new THREE.FogExp2(FOG_COLOR, 0.05);
   scene.background = new THREE.Color(FOG_COLOR);
 
@@ -472,23 +489,44 @@
     tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
     return tex;
   }
-  const wallTex = makeStoneTexture([96,68,52], '#170e09', 256);
+  const wallTex = makeStoneTexture([176,166,142], '#3a3328', 256);
   wallTex.repeat.set(2,2);
-  const floorTex = makeStoneTexture([70,50,38], '#0e0805', 256);
+
+  //=================== MURKY FLOODED FLOOR (greenish, hazy, faintly reflective — like the reference photo) ===================
+  function makeWaterFloorTexture(size){
+    const c = document.createElement('canvas'); c.width=c.height=size||256;
+    const ctx = c.getContext('2d');
+    const grad = ctx.createLinearGradient(0,0,0,c.height);
+    grad.addColorStop(0, '#3a4438');
+    grad.addColorStop(1, '#242c22');
+    ctx.fillStyle = grad; ctx.fillRect(0,0,c.width,c.height);
+    for(let i=0;i<220;i++){
+      const x=Math.random()*c.width, y=Math.random()*c.height;
+      ctx.strokeStyle = `rgba(${140+Math.random()*40|0},${160+Math.random()*40|0},${130+Math.random()*30|0},${0.08+Math.random()*0.12})`;
+      ctx.lineWidth = 1+Math.random()*1.5;
+      ctx.beginPath();
+      ctx.ellipse(x,y, 10+Math.random()*30, 3+Math.random()*6, Math.random()*Math.PI, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    return tex;
+  }
+  const floorTex = makeWaterFloorTexture(256);
   floorTex.repeat.set(3,3);
 
-  const wallMat = new THREE.MeshStandardMaterial({ map:wallTex, roughness:0.95, metalness:0.05 });
-  const floorMat = new THREE.MeshStandardMaterial({ map:floorTex, roughness:1, metalness:0 });
-  const ceilMat = new THREE.MeshStandardMaterial({ color:0x140c08, roughness:1 });
+  const wallMat = new THREE.MeshStandardMaterial({ map:wallTex, roughness:0.92, metalness:0.04 });
+  const floorMat = new THREE.MeshStandardMaterial({ map:floorTex, roughness:0.35, metalness:0.15, color:0x8fa088 });
+  const ceilMat = wallMat; // the vault is the same limestone as the walls, continuing overhead
 
   //=================== PROCEDURAL OSSUARY WALL (skulls + stacked bones, Paris-catacombs style) ===================
   function makeBoneNicheTexture(w, h){
     const c = document.createElement('canvas'); c.width=w||512; c.height=h||320;
     const ctx = c.getContext('2d');
-    // background matches the warm dirt/stone tone so bones read as embedded in the wall, not painted on
-    ctx.fillStyle = '#1a1008'; ctx.fillRect(0,0,c.width,c.height);
+    // background matches the pale limestone tone so bones read as embedded in the wall, not painted on
+    ctx.fillStyle = '#4a453a'; ctx.fillRect(0,0,c.width,c.height);
     for(let i=0;i<900;i++){
-      ctx.fillStyle = `rgba(${40+Math.random()*30|0},${28+Math.random()*20|0},${18+Math.random()*14|0},${0.4+Math.random()*0.4})`;
+      ctx.fillStyle = `rgba(${90+Math.random()*40|0},${84+Math.random()*36|0},${68+Math.random()*28|0},${0.35+Math.random()*0.35})`;
       ctx.fillRect(Math.random()*c.width, Math.random()*c.height, 3, 3);
     }
     // a sparse scatter of small bones low in the niche, half-buried rather than stacked wall-to-wall
@@ -552,10 +590,10 @@
     return tex;
   }
 
-  //=================== LIGHTING (subtle — torch/flashlight carve the dark, ambient stays low) ===================
-  const hemi = new THREE.HemisphereLight(0x4a342a, 0x0a0503, 0.42);
+  //=================== LIGHTING (cool, hazy limestone ambient — the warm torch is what cuts through it) ===================
+  const hemi = new THREE.HemisphereLight(0x3a4a42, 0x0a0f0c, 0.4);
   scene.add(hemi);
-  const ambientFill = new THREE.AmbientLight(0x2e1f14, 0.22);
+  const ambientFill = new THREE.AmbientLight(0x222a24, 0.22);
   scene.add(ambientFill);
 
   //=================== MAZE GENERATION (grid-based catacomb — tight ossuary tunnels) ===================
@@ -624,6 +662,41 @@
     worldGroup.add(g);
   }
 
+  //=================== BARREL-VAULTED STONE CEILING (matches the arched limestone catacombs reference) ===================
+  function addVaultCeiling(x, z, runsX){
+    const wallTopY = 3.0, capY = 3.42, capHalfWidth = CELL*0.26;
+    const outerHalf = CELL/2;
+    const dOffset = outerHalf - capHalfWidth;
+    const dY = capY - wallTopY;
+    const slantLen = Math.hypot(dOffset, dY);
+    const angle = Math.atan2(dY, dOffset);
+    const midY = (wallTopY+capY)/2;
+    const midOffset = (outerHalf+capHalfWidth)/2;
+
+    const g = new THREE.Group();
+    const shoulderGeo = new THREE.PlaneGeometry(CELL, slantLen);
+
+    const left = new THREE.Mesh(shoulderGeo, ceilMat);
+    left.position.set(0, midY, -midOffset);
+    left.rotation.x = Math.PI/2 - angle;
+    g.add(left);
+
+    const right = new THREE.Mesh(shoulderGeo, ceilMat);
+    right.position.set(0, midY, midOffset);
+    right.rotation.x = -(Math.PI/2 - angle);
+    g.add(right);
+
+    const capGeo = new THREE.PlaneGeometry(CELL, capHalfWidth*2);
+    const cap = new THREE.Mesh(capGeo, ceilMat);
+    cap.rotation.x = Math.PI/2;
+    cap.position.set(0, capY, 0);
+    g.add(cap);
+
+    g.position.set(x, 0, z);
+    if(!runsX) g.rotation.y = Math.PI/2;
+    worldGroup.add(g);
+  }
+
   const wallGeo = new THREE.BoxGeometry(CELL, 3.0, CELL);
   const floorGeo = new THREE.PlaneGeometry(CELL, CELL);
   const ceilGeo = new THREE.PlaneGeometry(CELL, CELL);
@@ -671,13 +744,13 @@
         floor.rotation.x = -Math.PI/2; floor.position.set(wx, 0, wz);
         floor.receiveShadow = true;
         worldGroup.add(floor);
-        const ceil = new THREE.Mesh(ceilGeo, ceilMat);
-        ceil.rotation.x = Math.PI/2; ceil.position.set(wx, 3.0, wz);
-        worldGroup.add(ceil);
 
-        // European mine-style wooden support frames, spanning whichever way the corridor runs
-        if(Math.random()<0.20){
-          const runsX = (grid[x-1]&&grid[x-1][z]===0) || (grid[x+1]&&grid[x+1][z]===0);
+        const runsX = (grid[x-1]&&grid[x-1][z]===0) || (grid[x+1]&&grid[x+1][z]===0);
+        addVaultCeiling(wx, wz, runsX);
+
+        // occasional wooden support frame — kept rare now that the tunnel reads as pure carved
+        // limestone like the reference photo, not a timbered mine
+        if(Math.random()<0.06){
           addSupportBeam(wx, wz, runsX ? 'x' : 'z');
         }
 
@@ -729,8 +802,13 @@
   }
 
   function addTorch(x,z){
-    const light = new THREE.PointLight(0xff8c42, 1.25, 8, 2);
-    light.position.set(x, 2.4, z);
+    // organic variance so no two torches look identical — some warmer, some brighter, some further-reaching
+    const hueShift = Math.random();
+    const color = hueShift<0.3 ? 0xffa050 : hueShift<0.7 ? 0xff8c42 : 0xff6a2e;
+    const intensity = 1.05 + Math.random()*0.5;
+    const range = 7 + Math.random()*3;
+    const light = new THREE.PointLight(color, intensity, range, 2);
+    light.position.set(x, 2.2+Math.random()*0.35, z);
     worldGroup.add(light);
     const emberMat = new THREE.MeshStandardMaterial({ color:0xff7a33, emissive:0xff5522, emissiveIntensity:1.5 });
     const ember = new THREE.Mesh(new THREE.SphereGeometry(0.06,8,8), emberMat);
@@ -742,7 +820,7 @@
   //=================== PLAYER SPAWN ===================
   const spawn = openCells[0];
   camera.position.set(spawn.x, EYE_STAND, spawn.z);
-  let yaw = 0, pitch = 0;
+  let yaw = 0, pitch = 0, yawTarget = 0, pitchTarget = 0;
 
   //=================== WEAPON MODEL (COD-style viewmodel) ===================
   const weaponGroup = new THREE.Group();
@@ -784,31 +862,63 @@
   flashlight.target = flashlightTarget;
 
   camera.add(weaponGroup);
+
+  // Subtle warm bounce-fill carried with the player — fills in geometry just outside the
+  // torch cone, like light scattering off nearby stone, without flattening the horror lighting.
+  const bounceFill = new THREE.PointLight(0xffb877, 0.35, 4.5, 2);
+  const bounceFillBase = bounceFill.intensity;
+  camera.add(bounceFill);
+
   scene.add(camera);
 
   //=================== ENEMIES ===================
   const enemies = [];
   const enemyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.9, 8);
-  function spawnEnemy(){
+  function spawnEnemy(type){
+    type = type || 'swarm';
     const cell = openCells[Math.floor(Math.random()*openCells.length)];
     const dist = Math.hypot(cell.x-camera.position.x, cell.z-camera.position.z);
-    if(dist < 10) return spawnEnemy();
-    const hue = Math.random();
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x2a3a2e, emissive: 0x113322, emissiveIntensity: 0.6, roughness:0.7
-    });
+    if(dist < 10) return spawnEnemy(type);
+
+    let mat, scale, hp, speed, eyeColor, floats, damage;
+    if(type==='swarm'){
+      // small, fast, weak — they come in numbers, not toughness
+      scale = 0.5;
+      mat = new THREE.MeshStandardMaterial({ color:0x241813, emissive:0x3a1408, emissiveIntensity:0.8, roughness:0.75 });
+      hp = 1;
+      speed = 2.3 + Math.random()*0.9 + wave*0.03;
+      eyeColor = 0xff5a1a;
+      floats = false;
+      damage = 6;
+    } else {
+      // the real ghost — bigger, translucent, slower but far more dangerous
+      scale = 1.55;
+      mat = new THREE.MeshStandardMaterial({ color:0xdfe6e8, emissive:0x8fb8c8, emissiveIntensity:0.55, roughness:0.35, transparent:true, opacity:0.5 });
+      hp = 5 + Math.floor(wave/2);
+      speed = 1.05 + Math.random()*0.4 + wave*0.025;
+      eyeColor = 0xbfe8ff;
+      floats = true;
+      damage = 20;
+    }
     const body = new THREE.Mesh(enemyGeo, mat);
-    body.position.set(cell.x, 0.95, cell.z);
+    body.scale.setScalar(scale);
+    const baseY = floats ? 1.3 : 0.95*scale;
+    body.position.set(cell.x, baseY, cell.z);
     body.castShadow = true;
-    const eyeMat = new THREE.MeshStandardMaterial({ color:0xff2a2a, emissive:0xff2a2a, emissiveIntensity:2 });
+    const eyeMat = new THREE.MeshStandardMaterial({ color:eyeColor, emissive:eyeColor, emissiveIntensity:2 });
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), eyeMat);
     eye.position.set(0,0.45,0.36);
     body.add(eye);
-    const light = new THREE.PointLight(0xff2a2a, 0.6, 3);
-    light.position.set(0,0.4,0.3);
-    body.add(light);
+    // only the ghost gets a live point light — swarm creatures rely on their emissive eye mesh
+    // instead, since a wave can have several of them on screen at once and mobile GPUs choke
+    // on too many simultaneous dynamic lights
+    if(type==='ghost'){
+      const light = new THREE.PointLight(eyeColor, 0.6, 3);
+      light.position.set(0,0.4,0.3);
+      body.add(light);
+    }
     worldGroup.add(body);
-    enemies.push({ mesh:body, hp:3+Math.floor(wave/2), speed:1.3+Math.random()*0.6+wave*0.04, alive:true, hitTimer:0, growlTimer:Math.random()*2 });
+    enemies.push({ mesh:body, hp, speed, alive:true, hitTimer:0, growlTimer:Math.random()*2, type, floats, damage, baseY });
   }
 
   //=================== GAME STATE ===================
@@ -840,9 +950,9 @@
   let pointerLocked = false;
   document.addEventListener('mousemove', e=>{
     if(!pointerLocked) return;
-    yaw -= e.movementX * 0.0022;
-    pitch -= e.movementY * 0.0022;
-    pitch = Math.max(-1.3, Math.min(1.3, pitch));
+    yawTarget -= e.movementX * 0.0022;
+    pitchTarget -= e.movementY * 0.0022;
+    pitchTarget = Math.max(-1.3, Math.min(1.3, pitchTarget));
   });
 
   const titleScreen = document.getElementById('title-screen');
@@ -911,9 +1021,9 @@
         if(t.identifier!==lookId) continue;
         const dx = t.clientX-lastLook.x, dy = t.clientY-lastLook.y;
         lastLook = {x:t.clientX, y:t.clientY};
-        yaw -= dx * 0.0026;
-        pitch -= dy * 0.0026;
-        pitch = Math.max(-1.3, Math.min(1.3, pitch));
+        yawTarget -= dx * 0.0028;
+        pitchTarget -= dy * 0.0028;
+        pitchTarget = Math.max(-1.3, Math.min(1.3, pitchTarget));
       }
       e.preventDefault();
     }, {passive:false});
@@ -979,13 +1089,23 @@
   }
   function launchWave(){
     waveActive = true;
-    const count = 3 + wave*2;
+    // wave 1: a swarm rush of small, weak creatures. From wave 2 on, the real ghost
+    // starts appearing and gradually takes over as the dominant threat.
+    const isSwarmWave = wave===1;
+    const count = isSwarmWave ? 6 + Math.floor(Math.random()*3) : 3 + wave*2;
     enemiesRemainingInWave = count;
     let spawned = 0;
     const spawnInt = setInterval(()=>{
       if(spawned>=count || state!=='playing'){ clearInterval(spawnInt); return; }
-      spawnEnemy(); spawned++;
-    }, 650);
+      let type;
+      if(isSwarmWave){
+        type = 'swarm';
+      } else {
+        const ghostChance = Math.min(0.85, 0.25 + wave*0.12);
+        type = Math.random()<ghostChance ? 'ghost' : 'swarm';
+      }
+      spawnEnemy(type); spawned++;
+    }, isSwarmWave ? 380 : 650);
   }
 
   function tryReload(){
@@ -1032,7 +1152,7 @@
   function killEnemy(enemy){
     enemy.alive = false;
     worldGroup.remove(enemy.mesh);
-    score += 100;
+    score += enemy.type==='ghost' ? 200 : 50;
     document.getElementById('score-value').textContent = score;
     enemiesRemainingInWave--;
     if(enemiesRemainingInWave<=0 && waveActive){
@@ -1085,38 +1205,52 @@
   let bobT = 0;
   let recoilKick = 0;
 
+  let animateDead = false;
   function animate(){
+    if(animateDead) return;
     requestAnimationFrame(animate);
+    try{
     const dt = Math.min(clock.getDelta(), 0.05);
+
+    // smooth look — eases toward the raw input target instead of snapping, for a more fluid feel
+    yaw += (yawTarget - yaw) * Math.min(1, dt*22);
+    pitch += (pitchTarget - pitch) * Math.min(1, dt*22);
 
     camera.rotation.order = 'YXZ';
     camera.rotation.y = yaw;
     camera.rotation.x = pitch;
 
     if(state==='playing'){
-      // movement
-      const speed = (sprint && !crouch ? 5.2 : crouch ? 1.8 : 3.2);
+      // movement — momentum-based: accelerate toward a target velocity and decelerate when input stops,
+      // instead of snapping straight to max speed, for a smoother, more dynamic feel.
+      const targetSpeed = (sprint && !crouch ? 5.6 : crouch ? 1.8 : 3.4);
       const forward = new THREE.Vector3(Math.sin(yaw),0,Math.cos(yaw)).multiplyScalar(-1);
       const right = new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));
-      let move = new THREE.Vector3();
-      if(keys['KeyW']) move.add(forward);
-      if(keys['KeyS']) move.sub(forward);
-      if(keys['KeyA']) move.sub(right);
-      if(keys['KeyD']) move.add(right);
+      let wish = new THREE.Vector3();
+      if(keys['KeyW']) wish.add(forward);
+      if(keys['KeyS']) wish.sub(forward);
+      if(keys['KeyA']) wish.sub(right);
+      if(keys['KeyD']) wish.add(right);
       if(isTouch){
-        if(touchDpad.fwd) move.add(forward);
-        if(touchDpad.back) move.sub(forward);
-        if(touchDpad.left) move.sub(right);
-        if(touchDpad.right) move.add(right);
+        if(touchDpad.fwd) wish.add(forward);
+        if(touchDpad.back) wish.sub(forward);
+        if(touchDpad.left) wish.sub(right);
+        if(touchDpad.right) wish.add(right);
       }
-      const moving = move.lengthSq()>0;
+      const hasInput = wish.lengthSq()>0;
+      if(hasInput) wish.normalize().multiplyScalar(targetSpeed);
+      // faster acceleration on the ground, snappier deceleration than acceleration (arcade-FPS feel)
+      const accelRate = grounded ? (hasInput ? 12 : 9) : 4;
+      velocity.x += (wish.x - velocity.x) * Math.min(1, accelRate*dt);
+      velocity.z += (wish.z - velocity.z) * Math.min(1, accelRate*dt);
+      const curSpeed = Math.hypot(velocity.x, velocity.z);
+      const moving = curSpeed > 0.05;
       if(moving){
-        move.normalize().multiplyScalar(speed*dt);
-        const nx = camera.position.x + move.x;
-        const nz = camera.position.z + move.z;
-        if(!collides(nx, camera.position.z)) camera.position.x = nx;
-        if(!collides(camera.position.x, nz)) camera.position.z = nz;
-        bobT += dt * (sprint?14:9);
+        const nx = camera.position.x + velocity.x*dt;
+        const nz = camera.position.z + velocity.z*dt;
+        if(!collides(nx, camera.position.z)) camera.position.x = nx; else velocity.x *= -0.2;
+        if(!collides(camera.position.x, nz)) camera.position.z = nz; else velocity.z *= -0.2;
+        bobT += dt * (sprint?14:9) * Math.min(1, curSpeed/targetSpeed);
       }
 
       // gravity / jump / crouch-height (grounded: ease toward stand/crouch height; airborne: real gravity)
@@ -1168,19 +1302,23 @@
           if(!collides(enemy.mesh.position.x, nz)) enemy.mesh.position.z = nz;
           enemy.mesh.rotation.y = Math.atan2(dirx, dirz);
         }
+        if(enemy.floats){
+          // the ghost hovers and drifts rather than walking
+          enemy.mesh.position.y = enemy.baseY + Math.sin(clock.elapsedTime*1.4 + enemy.growlTimer)*0.18;
+        }
         if(dist < 1.0){
-          damagePlayer(12*dt);
+          damagePlayer((enemy.damage||12)*dt);
         }
         if(enemy.hitTimer>0){
           enemy.hitTimer -= dt;
           enemy.mesh.material.emissiveIntensity = 2.5;
         } else {
-          enemy.mesh.material.emissiveIntensity = 0.6 + Math.sin(clock.elapsedTime*3)*0.15;
+          enemy.mesh.material.emissiveIntensity = (enemy.type==='ghost'?0.5:0.6) + Math.sin(clock.elapsedTime*3)*0.15;
         }
         enemy.growlTimer -= dt;
         if(enemy.growlTimer<=0 && dist<12){
           enemy.growlTimer = 2+Math.random()*3;
-          if(Math.random()<0.5) playGrowl();
+          if(Math.random()<0.5) playGrowl(enemy.type);
         }
       }
     }
@@ -1194,8 +1332,16 @@
     }
     // rifle torch — subtle handheld unsteadiness, like a real light on a moving weapon
     flashlight.intensity = flashlightBaseIntensity * (0.9 + Math.sin(clock.elapsedTime*17)*0.04 + (Math.random()-0.5)*0.05);
+    bounceFill.intensity = bounceFillBase * (0.85 + Math.sin(clock.elapsedTime*17)*0.06 + (Math.random()-0.5)*0.08);
 
     renderer.render(scene, camera);
+    } catch(frameErr){
+      const box = document.getElementById('error-overlay');
+      const txt = document.getElementById('error-text');
+      txt.textContent = 'Crashed mid-game:\n' + (frameErr && frameErr.message ? frameErr.message : String(frameErr)) + (frameErr && frameErr.stack ? ('\n\n' + frameErr.stack) : '');
+      box.style.display = 'flex';
+      animateDead = true;
+    }
   }
   animate();
 
