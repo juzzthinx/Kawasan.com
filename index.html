@@ -1,4 +1,4 @@
-DOCTYPE html>
+!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1266,6 +1266,11 @@ DOCTYPE html>
   function killEnemy(enemy){
     enemy.alive = false;
     worldGroup.remove(enemy.mesh);
+    // actually remove it from the array, not just flag it dead — otherwise every enemy that has
+    // ever spawned stays in the per-frame AI loop for the rest of the session, and the game
+    // gets progressively slower the longer you play
+    const idx = enemies.indexOf(enemy);
+    if(idx !== -1) enemies.splice(idx, 1);
     score += enemy.type==='ghost' ? 200 : 50;
     document.getElementById('score-value').textContent = score;
     enemiesRemainingInWave--;
