@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -472,7 +472,7 @@
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap; // cheaper than soft-shadow filtering, still readable
   // filmic tone mapping + correct color space — the single biggest, cheapest step toward a
   // less "flat renderer" look and more like a graded, cinematic image
   renderer.outputEncoding = THREE.sRGBEncoding;
@@ -757,7 +757,10 @@
       if(grid[x][z]===1){
         const wall = new THREE.Mesh(wallGeo, wallMat);
         wall.position.set(wx, 1.5, wz);
-        wall.castShadow = true; wall.receiveShadow = true;
+        // receiveShadow stays true so shadows still fall on walls; castShadow is off because
+        // rendering every wall box into the shadow pass every frame was the main source of lag —
+        // enemies casting shadows is the part that actually reads as "horror," not the walls themselves
+        wall.castShadow = false; wall.receiveShadow = true;
         worldGroup.add(wall);
         wallColliders.push({minX:wx-CELL/2, maxX:wx+CELL/2, minZ:wz-CELL/2, maxZ:wz+CELL/2});
 
@@ -913,7 +916,7 @@
   // is the single biggest horror-atmosphere upgrade available here. Kept to one light and a
   // modest map size since this is the only shadow-casting light in the scene.
   flashlight.castShadow = true;
-  flashlight.shadow.mapSize.set(512, 512);
+  flashlight.shadow.mapSize.set(384, 384); // trimmed from 512 — one more lever against mobile lag
   flashlight.shadow.camera.near = 0.3;
   flashlight.shadow.camera.far = 14;
   flashlight.shadow.bias = -0.0025;
@@ -937,19 +940,20 @@
     const dist = Math.hypot(cell.x-camera.position.x, cell.z-camera.position.z);
     if(dist < 10) return spawnEnemy(type);
 
-    let mat, scale, hp, speed, eyeColor, floats, damage;
+    let mat, scaleXZ, scaleY, hp, speed, eyeColor, floats, damage;
     if(type==='swarm'){
-      // small, fast, weak — they come in numbers, not toughness
-      scale = 0.5;
-      mat = new THREE.MeshStandardMaterial({ color:0x241813, emissive:0x3a1408, emissiveIntensity:0.8, roughness:0.75 });
+      // small, fast, weak — but built to look wrong: squat, wide, crouched low to the ground
+      // rather than a shrunken version of a normal body
+      scaleXZ = 0.62; scaleY = 0.32;
+      mat = new THREE.MeshStandardMaterial({ color:0x1a1210, emissive:0x2a0e05, emissiveIntensity:0.9, roughness:0.8 });
       hp = 1;
-      speed = 2.3 + Math.random()*0.9 + wave*0.03;
-      eyeColor = 0xff5a1a;
+      speed = 2.5 + Math.random()*1.1 + wave*0.03;
+      eyeColor = 0xff3a10;
       floats = false;
       damage = 6;
     } else {
       // the real ghost — bigger, translucent, slower but far more dangerous
-      scale = 1.55;
+      scaleXZ = 1.55; scaleY = 1.55;
       mat = new THREE.MeshStandardMaterial({ color:0xdfe6e8, emissive:0x8fb8c8, emissiveIntensity:0.55, roughness:0.35, transparent:true, opacity:0.5 });
       hp = 5 + Math.floor(wave/2);
       speed = 1.05 + Math.random()*0.4 + wave*0.025;
@@ -958,15 +962,25 @@
       damage = 20;
     }
     const body = new THREE.Mesh(enemyGeo, mat);
-    body.scale.setScalar(scale);
-    const baseY = floats ? 1.3 : 0.95*scale;
+    body.scale.set(scaleXZ, scaleY, scaleXZ);
+    const baseY = floats ? 1.3 : 0.95*scaleY;
     body.position.set(cell.x, baseY, cell.z);
     body.castShadow = true;
-    const eyeMat = new THREE.MeshStandardMaterial({ color:eyeColor, emissive:eyeColor, emissiveIntensity:2 });
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), eyeMat);
-    eye.position.set(0,0.45,0.36);
-    body.add(eye);
-    // only the ghost gets a live point light — swarm creatures rely on their emissive eye mesh
+    const eyeMat = new THREE.MeshStandardMaterial({ color:eyeColor, emissive:eyeColor, emissiveIntensity:2.4 });
+    if(type==='swarm'){
+      // a pair of close-set eyes reads as a creature looking at you, not a single glowing dot
+      const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.05,6,6), eyeMat);
+      eyeL.position.set(-0.13,0.5,0.42);
+      body.add(eyeL);
+      const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.05,6,6), eyeMat);
+      eyeR.position.set(0.13,0.5,0.42);
+      body.add(eyeR);
+    } else {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), eyeMat);
+      eye.position.set(0,0.45,0.36);
+      body.add(eye);
+    }
+    // only the ghost gets a live point light — swarm creatures rely on their emissive eyes
     // instead, since a wave can have several of them on screen at once and mobile GPUs choke
     // on too many simultaneous dynamic lights
     if(type==='ghost'){
@@ -975,7 +989,7 @@
       body.add(light);
     }
     worldGroup.add(body);
-    enemies.push({ mesh:body, hp, speed, alive:true, hitTimer:0, growlTimer:Math.random()*2, type, floats, damage, baseY });
+    enemies.push({ mesh:body, hp, speed, alive:true, hitTimer:0, growlTimer:Math.random()*2, type, floats, damage, baseY, jitterPhase:Math.random()*Math.PI*2 });
   }
 
   //=================== GAME STATE ===================
@@ -1409,7 +1423,17 @@
         const dz = camera.position.z - enemy.mesh.position.z;
         const dist = Math.hypot(dx,dz);
         if(dist > 0.01){
-          const dirx = dx/dist, dirz = dz/dist;
+          let dirx = dx/dist, dirz = dz/dist;
+          if(enemy.type==='swarm'){
+            // erratic skittering instead of a clean straight-line approach — the wrongness of
+            // the movement is what should read as scary, not just speed
+            enemy.jitterPhase += dt*9;
+            const jitter = Math.sin(enemy.jitterPhase) * 0.55;
+            const perpx = -dirz, perpz = dirx;
+            dirx += perpx*jitter; dirz += perpz*jitter;
+            const jlen = Math.hypot(dirx,dirz) || 1;
+            dirx/=jlen; dirz/=jlen;
+          }
           const step = enemy.speed*dt;
           const nx = enemy.mesh.position.x + dirx*step;
           const nz = enemy.mesh.position.z + dirz*step;
@@ -1420,6 +1444,9 @@
         if(enemy.floats){
           // the ghost hovers and drifts rather than walking
           enemy.mesh.position.y = enemy.baseY + Math.sin(clock.elapsedTime*1.4 + enemy.growlTimer)*0.18;
+        } else if(enemy.type==='swarm'){
+          // quick twitchy vertical bob — insectile, never quite still
+          enemy.mesh.position.y = enemy.baseY + Math.abs(Math.sin(enemy.jitterPhase*1.7))*0.06;
         }
         if(dist < 1.0){
           damagePlayer((enemy.damage||12)*dt);
@@ -1427,13 +1454,18 @@
         if(enemy.hitTimer>0){
           enemy.hitTimer -= dt;
           enemy.mesh.material.emissiveIntensity = 2.5;
+        } else if(enemy.type==='swarm'){
+          // fast, irregular flicker — like something twitching in the dark, not a steady glow
+          enemy.mesh.material.emissiveIntensity = 0.7 + Math.sin(clock.elapsedTime*23 + enemy.jitterPhase)*0.3 + (Math.random()<0.05 ? 0.6 : 0);
         } else {
-          enemy.mesh.material.emissiveIntensity = (enemy.type==='ghost'?0.5:0.6) + Math.sin(clock.elapsedTime*3)*0.15;
+          enemy.mesh.material.emissiveIntensity = 0.5 + Math.sin(clock.elapsedTime*3)*0.15;
         }
         enemy.growlTimer -= dt;
-        if(enemy.growlTimer<=0 && dist<12){
-          enemy.growlTimer = 2+Math.random()*3;
-          if(Math.random()<0.5) playGrowl(enemy.type);
+        const chitterChance = enemy.type==='swarm' ? 0.75 : 0.5;
+        const chitterRange = enemy.type==='swarm' ? 14 : 12;
+        if(enemy.growlTimer<=0 && dist<chitterRange){
+          enemy.growlTimer = (enemy.type==='swarm' ? 1+Math.random()*1.5 : 2+Math.random()*3);
+          if(Math.random()<chitterChance) playGrowl(enemy.type);
         }
       }
     }
