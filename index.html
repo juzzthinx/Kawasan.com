@@ -38,6 +38,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 #knob{position:absolute;left:40px;top:40px;width:45px;height:45px;border-radius:50%;background:rgba(255,200,220,.18);border:1px solid rgba(255,255,255,.3)}
 .b{position:fixed;z-index:35;width:54px;height:54px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.28);color:#f2e6e0;font:10px 'Courier New'}
 #fire{right:24px;bottom:86px;width:76px;height:76px}#aim{right:112px;bottom:126px}#rld{right:112px;bottom:196px}#hold{right:30px;bottom:182px}#zoom{right:30px;bottom:252px}#jump{right:112px;bottom:266px}#crch{right:30px;bottom:322px}#flt{right:112px;bottom:336px}
+#stamw{position:absolute;left:16px;bottom:84px;width:170px;font-size:10px;letter-spacing:2px}#stamf{display:block;height:100%;width:100%;background:#9fd8d0}
 #batw{position:absolute;left:16px;bottom:56px;width:170px;font-size:10px;letter-spacing:2px}.bb{height:4px;background:rgba(255,255,255,.12);margin-top:4px}#batf{display:block;height:100%;width:100%;background:#ffe3a0}
 #hp.low{animation:lowhp .7s infinite}@keyframes lowhp{50%{background:#ff4a5a}}
 #sens{position:fixed;top:54px;right:12px;z-index:36;height:26px;padding:0 8px;border-radius:13px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;font:10px 'DotGothic16',monospace}
@@ -76,7 +77,7 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 <div id="lbox"><div id="lt">NOW LOADING <span>ロード中</span><b>...</b></div><div id="bar"><i id="barf"></i></div><div id="lp">0%</div><div id="tip"></div></div>
 <div id="lc">© 1998 KAWASAN SOFT　廃墟遊園地</div></div>
 <div id="hud"><div id="top"><div id="wv">WAVE 0 • KILLS 0</div><div id="fps"></div></div><div id="msg"></div>
-<div id="hpw">VITALITY<div id="hpb"><div id="hp"></div></div></div><div id="batw">LIGHT<div class="bb"><i id="batf"></i></div></div>
+<div id="hpw">VITALITY<div id="hpb"><div id="hp"></div></div></div><div id="batw">LIGHT<div class="bb"><i id="batf"></i></div></div><div id="stamw">STAMINA<div class="bb"><i id="stamf"></i></div></div>
 <div id="ammo"><span id="am">12 / 48</span><small>SEMI-AUTO SNIPER</small></div>
 <div id="scope"><div id="mh"></div><div id="mv"></div><div id="sd"></div></div><div id="cross"></div></div>
 <div id="vig"></div><div id="fear"></div><div id="sp"></div><div id="dmg"></div>
@@ -88,11 +89,12 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 'use strict';
 const $=id=>document.getElementById(id),PI=Math.PI;
 let scene,cam,ren,rifle,wheel,carousel,bulbMat,ratio=1,sky,skyU,HM,LT,gT=2,coaster=null,ship=null,swinger=null,torchMat=null;
-const P={x:0,z:78,vx:0,vz:0,sp:0,h:0,vy:0,bob:0,dip:0,eye:1.7,stp:0};
+const P={x:0,z:78,vx:0,vz:0,sp:0,h:0,vy:0,bob:0,dip:0,eye:1.7,stp:0,gr:true};
 let yaw=0,pitch=0,pY=0,pP=0,mX=0,mY=0,scoped=false,hold=false,breath=4,running=false,firing=false,dead=false;
 let hp=100,ammo=12,reserve=48,cd=0,rld=0,rec=0,wave=0,kills=0,score=0,toSpawn=0,spawnT=2,gap=0,msgT;
 const keys={},enemies=[],bullets=[],dummy=new THREE.Object3D(),clock=new THREE.Clock(),V=new THREE.Vector3();
 let iX=0,iY=0,runOn=false,runT=0,fearV=0,fearT=0,bT=0,EYEG=null;
+let stam=100,stamLock=false,shake=0,rage=0,seenStalker=false;
 let SUN=null,nightV=.12,hV=.08,flashT=25,flashP=0,thunderT=0,skyTime=0;
 let FL=null,flOn=false,batt=100,QL=2,okRuns=0,weedsM=null,scT=3,hbT=0,RT=null;const PK=[];
 const CYCLE=.38,MAG=12,RESMAX=96; /* Nagaloka feel: quick 12-round magazine, fast follow-up shots */
@@ -361,7 +363,7 @@ function buildExtras(){
   add(mergeColored([G(U16,0x77777c,0,.5,0,5.4,1,5.4),G(U16,0x1f2a22,0,.92,0,4.8,.1,4.8),G(U16,0x8a8a8f,0,2,0,.7,3,.7),G(U16,0x7a7a80,0,3.5,0,2,.35,2),
     G(US,0x8a8a8f,0,4.4,0,.5,.7,.5),G(UB,0x8a8a8f,-.7,4.6,0,.8,.1,.3,0,0,.4),G(UB,0x8a8a8f,.7,4.6,0,.8,.1,.3,0,0,-.4),G(UB,0x2d4a2a,2.2,.9,3.8,1.6,.2,.9),G(UB,0x2d4a2a,-3.5,.95,-2,1.2,.2,1.4)]),
     new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true}),0,0,-5);
-  COLC.push([0,-5,5.6]);
+  COLC.push([0,-5,5.6,1]);
   /* --- lake with dock and drifting swan boats --- */
   const lx=95,lz=70,lr=27;
   add(new THREE.CircleGeometry(lr,40).rotateX(-PI/2),new THREE.MeshLambertMaterial({emissive:0x1a1228,transparent:true,opacity:.95,map:ctex(256,256,g=>{
@@ -461,17 +463,17 @@ function buildApocalypse(){
   };
   LT[2].color.setHex(0xff8a3a);
   const BR=[[-8,72],[8,72],[-5,56],[5,50],[-24,20],[26,10],[-18,-28],[20,-33],[44,-8],[-52,-5],[10,-48],[-70,40]];
-  inst(C(.42,1,10).translate(0,.5,0),L(0xffffff),BR.length,i=>{dummy.position.set(BR[i][0],0,BR[i][1]);COLC.push([BR[i][0],BR[i][1],.55]);return hc(.05,.4,R(.16,.26))});
+  inst(C(.42,1,10).translate(0,.5,0),L(0xffffff),BR.length,i=>{dummy.position.set(BR[i][0],0,BR[i][1]);COLC.push([BR[i][0],BR[i][1],.55,1]);return hc(.05,.4,R(.16,.26))});
   BR.forEach(b=>fire(b[0],1,b[1],.9,false));
   fire(50,3.4,135,2.6,true);fire(62,2,28,2.2,true);fire(14,1.2,10,1.8,true);fire(-38,.4,45,1.1,true);
   const vcm2=new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true,emissive:0x0c0a08});
   const wreck=mergeColored([G(UB,0x1a1614,0,.6,0,1.8,.7,4.2),G(UB,0x120f0d,0,1.2,-.2,1.6,.5,2.2),G(UB,0x2a2420,0,.9,2.1,1.7,.1,.3),...[[-.92,-1.3],[.92,-1.3],[-.92,1.3],[.92,1.3]].map(([x,z])=>G(UC,0x0a0a0a,x,.3,z,.3,.25,.3,0,0,PI/2))]);
-  for(const [x,z,r,t] of[[14,10,.6,.25],[-48,-40,2.2,0],[80,60,1,.3]]){const m=new THREE.Mesh(wreck,vcm2);m.position.set(x,0,z);m.rotation.set(0,r,t);scene.add(m);COLC.push([x,z,2])}
+  for(const [x,z,r,t] of[[14,10,.6,.25],[-48,-40,2.2,0],[80,60,1,.3]]){const m=new THREE.Mesh(wreck,vcm2);m.position.set(x,0,z);m.rotation.set(0,r,t);scene.add(m);COLC.push([x,z,2,1.25])}
   const heli=mergeColored([G(US,0x3a4a30,0,1.1,0,1.3,1,2.4),G(US,0x1a2a38,0,1.3,1.8,.9,.7,.9),G(UB,0x3a4a30,0,1.4,-3.8,.35,.4,3.6),G(UB,0x3a4a30,0,2.1,-5.5,.12,1,.8),G(UB,0x222222,-.9,.2,0,.08,.08,3),G(UB,0x222222,.9,.2,0,.08,.08,3),
     G(UC,0x222222,0,2.2,.2,.1,.5,.1),G(UB,0x222222,2.5,2.45,.2,5,.05,.35,0,.2,.35),G(UB,0x222222,-3,2,.2,4,.05,.35,0,.2,-.5)]);
   const hm=new THREE.Mesh(heli,vcm2);hm.position.set(62,0,28);hm.rotation.set(.1,1,.22);scene.add(hm);COLC.push([62,28,3.6]);
   const jb=[[-7.5,64],[-4.5,64],[4.5,64],[7.5,64]];
-  inst(B(3,1.1,.7),L(0xffffff),jb.length,i=>{dummy.position.set(jb[i][0],.55,jb[i][1]);COLB.push([jb[i][0]-1.5,jb[i][0]+1.5,jb[i][1]-.4,jb[i][1]+.4]);return hc(.1,.05,R(.3,.38))});
+  inst(B(3,1.1,.7),L(0xffffff),jb.length,i=>{dummy.position.set(jb[i][0],.55,jb[i][1]);COLB.push([jb[i][0]-1.5,jb[i][0]+1.5,jb[i][1]-.4,jb[i][1]+.4,1.1]);return hc(.1,.05,R(.3,.38))});
   inst(new THREE.IcosahedronGeometry(1,0),L(0xffffff),52,i=>{const w=i<26?-1:1,k=i%26,x=w*(10.5+(k%7)*.55),z=66.5+Math.floor(k/7)*.5;dummy.position.set(x,.15+Math.floor(k/7)*.28,z+R(-.1,.1));dummy.scale.set(.5,.28,.32);dummy.rotation.y=R(-.2,.2);return hc(.11,.3,R(.3,.4))});
   for(const x of[-2.8,2.8])add(C(.1,4,5),L(0x333333),x,2,64);
   const q=new THREE.Mesh(new THREE.PlaneGeometry(5.6,2.1),neon('隔離区域','QUARANTINE ZONE','#ff3a3a'));q.position.set(0,3.9,64.1);scene.add(q);
@@ -480,7 +482,7 @@ function buildApocalypse(){
   inst(B(.4,.2,.2),L(0xffffff),110,i=>{const c=cl[i%18];dummy.position.set(c[0]+R(-6,6),.1,c[1]+R(-6,6));dummy.rotation.set(0,R(0,6),R(-.3,.3));return hc(.04,.5,R(.18,.3))});
   inst(new THREE.TorusGeometry(.35,.03,4,10),L(0x3a3a40),90,i=>{const an=i/90*6.283;dummy.position.set(Math.cos(an)*148,2.5,Math.sin(an)*148);dummy.rotation.y=-an});
   for(const [x,z,r] of[[-38,41,.2],[-32,46,.9],[-43,47,1.6]]){const t=new THREE.Mesh(new THREE.ConeGeometry(2.3,2.3,4).rotateY(PI/4),L(0x4a5230));t.position.set(x,1.15,z);t.rotation.y=r;scene.add(t);COLC.push([x,z,1.8])}
-  inst(B(1,.8,.8),L(0xffffff),5,i=>{dummy.position.set(-35+i*1.2,.4,38+R(-1,1));dummy.rotation.y=R(0,3);return hc(.1,.4,.3)});
+  inst(B(1,.8,.8),L(0xffffff),5,i=>{const cx=-35+i*1.2,cz=38+R(-1,1);dummy.position.set(cx,.4,cz);COLB.push([cx-.5,cx+.5,cz-.45,cz+.45,.8]);dummy.rotation.y=R(0,3);return hc(.1,.4,.3)});
   AP.fires.forEach(f=>{const m=new THREE.Mesh(new THREE.PlaneGeometry(1,1).rotateX(-PI/2),new THREE.MeshBasicMaterial({map:scT,transparent:true,depthWrite:false}));m.position.set(f.x,.065,f.z);m.scale.setScalar(f.s*5+2);scene.add(m)});
   const an=260,aa=new Float32Array(an*3);for(let i=0;i<an;i++){aa[i*3]=P.x+R(-40,40);aa[i*3+1]=R(0,20);aa[i*3+2]=P.z+R(-40,40)}
   const ag=new THREE.BufferGeometry();ag.setAttribute('position',new THREE.BufferAttribute(aa,3));
@@ -617,15 +619,17 @@ const ZV=[
   {sh:0xeeeeee,pn:0x1c2a55,ac:0xb02a3a,hair:0x0e0a0a,shoe:0x2a1a14,long:1,guts:1},
   {sh:0xd98fb0,pn:0xd98fb0,ac:0xf4f0e6,hair:0,shoe:0xf4f0e6,mascot:1,guts:0},
   {sh:0x23355c,pn:0x1c2a4a,ac:0xd8c050,hair:0x1b1512,shoe:0x101010,cap:1,guts:1},
-  {sh:0x3aa6a0,pn:0xd8c8a0,ac:0xd04a7a,hair:0x3a2a10,shoe:0xe8e0d0,guts:0}
+  {sh:0x3aa6a0,pn:0xd8c8a0,ac:0xd04a7a,hair:0x3a2a10,shoe:0xe8e0d0,guts:0},
+  {sh:0x0e0e12,pn:0x0e0e12,ac:0x500000,hair:0x050505,shoe:0x050505,skin:0xd9d5cc,guts:0},   /* the pale one */
+  {sh:0x3a342e,pn:0x2a2622,ac:0x6a4a20,hair:0x0a0806,shoe:0x151210,skin:0x2b211c,guts:1}     /* charred by the fires */
 ];
 const ZM=new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true,emissive:0x1c1112}),ZE=new THREE.MeshBasicMaterial({color:0xe6ff5a});
 let ZT=[];
 function mkZombies(){
   ZT=ZV.map(v=>{
-    const T={};
+    const T={},sk=v.skin||SK;
     /* torso: clothes, torn flaps, exposed ribs + spine, wounds, hanging guts */
-    const tp=[G(UB,v.pn,0,.95,0,.36,.2,.22),G(UB,v.sh,0,1.15,0,.32,.22,.2),G(UB,v.sh,0,1.4,0,.4,.3,.24),G(UB,v.sh,0,1.55,0,.54,.1,.2),G(UC,SK,0,1.66,0,.06,.1,.06),
+    const tp=[G(UB,v.pn,0,.95,0,.36,.2,.22),G(UB,v.sh,0,1.15,0,.32,.22,.2),G(UB,v.sh,0,1.4,0,.4,.3,.24),G(UB,v.sh,0,1.55,0,.54,.1,.2),G(UC,sk,0,1.66,0,.06,.1,.06),
       G(UB,WND,-.14,1.42,.108,.17,.14,.01),G(UB,SKD,.15,1.2,.11,.1,.14,.012),G(UB,BLD,.05,1.3,.125,.2,.05,.01),G(UB,BLD,-.1,1.1,.11,.08,.12,.01),
       G(UB,v.ac,0,1.38,.125,.04,.2,.012),G(UB,v.ac,.12,1.5,.125,.05,.04,.01),G(UB,0x222222,0,1.03,0,.37,.04,.23),G(UB,0xc8b060,0,1.03,.118,.04,.03,.01),
       G(UB,WND,.03,1.68,.05,.05,.04,.03),G(UK,BONE,.3,1.62,0,.02,.12,.02,0,0,-.6),G(UB,BLD,.1,1.38,.122,.02,.14,.005,0,0,.5),G(UB,BLD,-.02,1.28,.122,.02,.12,.005,0,0,-.4),
@@ -643,22 +647,23 @@ function mkZombies(){
       eyes=mergeColored([G(US,0xffffff,-.09,.2,.235,.028,.028,.028),G(US,0xffffff,.09,.2,.235,.028,.028,.028)]);
       T.jaw=mergeColored([G(UB,0xd98fb0,0,-.02,.1,.16,.05,.15),G(UB,0x8a2a3a,0,0,.1,.08,.01,.1)]);
     }else{
-      hd=[G(US,SK,0,.12,0,.13,.15,.145),G(US,BONE,.06,.23,.05,.06,.04,.05),G(UB,SKD,0,.14,.13,.12,.025,.03),G(US,DK,-.055,.13,.125,.04,.04,.03),G(US,DK,.055,.13,.125,.04,.04,.03),
-        G(UB,DK,0,.08,.14,.02,.03,.01),G(UB,WND,.1,.06,.1,.03,.05,.03),G(UB,WND,0,.045,.125,.06,.012,.015),G(US,SK,-.14,.1,0,.02,.04,.03),G(US,SK,.14,.1,0,.02,.04,.03),
-        G(US,0xe8e0d0,-.06,.05,.15,.022,.022,.022),G(UB,WND,-.06,.09,.14,.006,.05,.006)]; /* dangling eyeball */
+      hd=[G(US,sk,0,.12,0,.13,.15,.145),G(US,BONE,.06,.23,.05,.06,.04,.05),G(UB,SKD,0,.14,.13,.12,.025,.03),G(US,DK,-.055,.13,.125,.04,.04,.03),G(US,DK,.055,.13,.125,.04,.04,.03),
+        G(UB,DK,0,.08,.14,.02,.03,.01),G(UB,WND,.1,.06,.1,.03,.05,.03),G(UB,WND,0,.045,.125,.06,.012,.015),G(US,sk,-.14,.1,0,.02,.04,.03),G(US,sk,.14,.1,0,.02,.04,.03),
+        G(US,0xe8e0d0,-.06,.05,.15,.022,.022,.022),G(UB,WND,-.06,.09,.14,.006,.05,.006),G(UB,0x3a4a5a,-.06,.2,.1,.01,.1,.005,0,0,.4),G(UB,0x3a4a5a,.07,.19,.1,.01,.09,.005,0,0,-.5),G(UB,BONE,-.1,.07,.1,.03,.04,.02),G(UB,0x3a4a5a,.02,.23,.11,.008,.08,.005,0,0,.2)]; /* dangling eyeball, veins, exposed cheekbone */
       if(v.cap)hd.push(G(UB,v.sh,0,.27,0,.3,.06,.3),G(UB,v.sh,0,.25,.16,.26,.025,.1),G(UB,v.ac,0,.28,.15,.06,.02,.01));
       else if(v.long)hd.push(G(UB,v.hair,0,.1,-.12,.24,.36,.06),G(UB,v.hair,-.13,.04,-.04,.05,.3,.1),G(UB,v.hair,.13,.04,-.04,.05,.3,.1),G(UB,v.hair,0,.26,0,.28,.03,.28));
       else hd.push(G(UB,v.hair,0,.26,-.02,.1,.03,.1),G(UB,v.hair,-.1,.2,-.06,.04,.06,.06),G(UB,v.hair,.08,.17,-.08,.05,.05,.05));
       for(let i=0;i<5;i++)hd.push(G(UB,BONE,-.04+i*.02,.035,.13,.014,.02,.012));
       eyes=mergeColored([G(US,0xffffff,-.055,.13,.13,.022,.022,.022),G(US,0xffffff,.055,.13,.13,.022,.022,.022)]);
-      const jw=[G(UB,SK,0,-.03,.08,.1,.035,.1),G(UB,0x8a2a3a,0,-.01,.09,.04,.01,.06)];
+      const jw=[G(UB,sk,0,-.03,.08,.1,.035,.1),G(UB,0x8a2a3a,0,-.01,.09,.04,.01,.06)];
+      jw.push(G(UB,WND,0,-.055,.13,.07,.05,.02),G(UB,BLD,.03,-.11,.125,.012,.11,.01),G(UB,BLD,-.025,-.09,.125,.01,.07,.01)); /* blood-soaked mouth */
       for(let i=0;i<5;i++)jw.push(G(UB,BONE,-.04+i*.02,0,.125,.014,.02,.012));
       T.jaw=mergeColored(jw);
     }
     T.head=mergeColored(hd);T.eyes=eyes;T.eg=v.mascot?[0,.2,.27]:[0,.13,.16];
     /* arms: torn sleeves, bone through the elbow, long claws */
     T.au=mergeColored([G(UC,v.sh,0,-.15,0,.055,.3,.055),G(UB,v.sh,.05,-.27,0,.02,.1,.05),G(UB,WND,-.04,-.1,.04,.02,.1,.01)]);
-    T.af=mergeColored([G(UC,SK,0,-.14,0,.045,.28,.045),G(UB,SK,0,-.3,0,.05,.08,.03),G(UB,WND,0,-.1,.04,.03,.12,.01),G(UK,BONE,0,-.02,.05,.012,.09,.012,PI/2),
+    T.af=mergeColored([G(UC,sk,0,-.14,0,.045,.28,.045),G(UB,sk,0,-.3,0,.05,.08,.03),G(UB,WND,0,-.1,.04,.03,.12,.01),G(UK,BONE,0,-.02,.05,.012,.09,.012,PI/2),
       ...[-.024,-.012,0,.012,.024].map(x=>G(UK,BONE,x,-.38,0,.008,.1,.008,PI))]);
     /* legs: torn trousers, exposed muscle and shin bone, worn shoes */
     T.lu=mergeColored([G(UC,v.pn,0,-.25,0,.09,.5,.09),G(UB,0x7a2a30,.07,-.2,.03,.02,.14,.04)]);
@@ -671,18 +676,22 @@ const KIND={
   walker:{hp:100,spd:()=>Math.min(1.1+wave*.08,2.2)+R(0,.4),dmg:8,sc:1.12,reach:1.9,stop:1.5,pts:100},
   runner:{hp:80,spd:()=>R(2.8,3.4),dmg:8,sc:1.1,reach:1.9,stop:1.5,pts:150},
   crawler:{hp:70,spd:()=>R(1.4,2),dmg:6,sc:1.05,reach:1.6,stop:1.2,pts:120,crawl:1},
-  brute:{hp:200,spd:()=>R(.9,1.3),dmg:14,sc:1.5,reach:2.5,stop:2,pts:300}
+  brute:{hp:200,spd:()=>R(.9,1.3),dmg:14,sc:1.5,reach:2.5,stop:2,pts:300},
+  stalker:{hp:120,spd:()=>R(4.6,5.4),dmg:20,sc:1.12,reach:2.1,stop:1.6,pts:250,tall:1},   /* tall and pale: only moves while you are NOT looking at it */
+  screamer:{hp:60,spd:()=>R(2.2,2.8),dmg:10,sc:1.08,reach:1.9,stop:1.5,pts:200}          /* its shriek rattles you and sends the horde into a frenzy */
 };
+const EYEC={walker:0xffe060,runner:0xffb040,crawler:0xffe060,brute:0xff4020,stalker:0xff2a2a,screamer:0x80ff90},EYEM={};
 function zombie(vi,kind){
   const T=ZT[vi],K=KIND[kind],g=new THREE.Group(),P={au:[],af:[],lu:[],ll:[],lg:[]};
   g.rotation.order='YXZ';const sc=K.sc*R(.95,1.05);g.scale.set(sc*R(.95,1.05),sc*R(.96,1.06),sc*R(.95,1.05));
   if(kind==='brute'){g.scale.x*=1.25;g.scale.z*=1.2}
+  if(K.tall){g.scale.x*=.82;g.scale.z*=.82;g.scale.y*=1.38}
   const up=new THREE.Group();up.position.y=.95;g.add(up);P.up=up;
   add(T.torso,ZM,0,-.95,0,up);
   const head=new THREE.Group();head.position.y=.79;up.add(head);P.head=head;
   add(T.head,ZM,0,0,0,head);add(T.eyes,ZE,0,0,0,head);
-  const gl=new THREE.Sprite(EYEG||(EYEG=new THREE.SpriteMaterial({map:glowT,color:0xffe060,transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending}))); /* eyes glow in the dark */
-  gl.scale.set(.55,.24,1);gl.position.set(T.eg[0],T.eg[1],T.eg[2]);head.add(gl);
+  const gl=new THREE.Sprite(EYEM[kind]||(EYEM[kind]=new THREE.SpriteMaterial({map:glowT,color:EYEC[kind],transparent:true,opacity:.75,depthWrite:false,blending:THREE.AdditiveBlending}))); /* eyes glow in the dark */
+  gl.scale.set(K.tall?.7:.55,K.tall?.3:.24,1);gl.position.set(T.eg[0],T.eg[1],T.eg[2]);head.add(gl);
   const jaw=new THREE.Group();jaw.position.set(0,.05,.03);head.add(jaw);P.jaw=jaw;add(T.jaw,ZM,0,-.05,-.03,jaw);
   for(const s of[-1,1]){
     const ar=new THREE.Group();ar.position.set(s*.3,.6,0);up.add(ar);add(T.au,ZM,0,0,0,ar);P.au.push(ar);
@@ -690,8 +699,8 @@ function zombie(vi,kind){
     const lg=new THREE.Group();lg.position.set(s*.14,.92,0);g.add(lg);add(T.lu,ZM,0,0,0,lg);P.lu.push(lg);P.lg.push(lg);
     const lo=new THREE.Group();lo.position.y=-.5;lg.add(lo);add(T.ll,ZM,0,0,0,lo);P.ll.push(lo);
   }
-  return{g,P,kind,hp:K.hp,alive:true,dead:0,cd:0,ph:R(0,6),sp:K.spd(),dmg:K.dmg,reach:K.reach,stopD:K.stop,pts:K.pts,crawl:!!K.crawl,k:sc/1.12,rad:.55*sc/1.12,
-    limp:Math.random()<.35?1:0,arm:Math.floor(R(0,3)),spasm:0,spT:R(2,6),run:kind==='runner',fz:0,fzT:R(1,4),burst:0,bCd:R(2,6),blind:0};
+  return{g,P,kind,hp:K.hp,alive:true,dead:0,cd:0,ph:R(0,6),sp:K.spd(),dmg:K.dmg,reach:K.reach,stopD:K.stop,pts:K.pts,crawl:!!K.crawl,k:g.scale.y/1.12,rad:.55*g.scale.x/1.12,
+    limp:Math.random()<.35?1:0,arm:Math.floor(R(0,3)),spasm:0,spT:R(2,6),run:kind==='runner',fz:0,fzT:R(1,4),burst:0,bCd:R(2,6),blind:0,shr:0,scCd:R(2,6),bnT:0};
 }
 function animZ(e,dt,d){
   const P=e.P,cr=e.crawl,lunge=d<2.6&&!cr;
@@ -721,11 +730,14 @@ function animZ(e,dt,d){
     e.g.position.y=Math.abs(c)*.04;
   }
   P.jaw.rotation.x=.25+Math.abs(Math.sin(T*1.1))*(d<5?.7:.35)+(lunge?.4:0);
+  if(e.shr>0){P.head.rotation.x=-.9;P.jaw.rotation.x=1.05;P.up.rotation.x=-.25;for(let i=0;i<2;i++){P.au[i].rotation.x=-.6;P.au[i].rotation.z=(i?-1:1)*1.3}} /* screamer rears back and shrieks */
 }
 function spawn(){
   const r=Math.random();let kind='walker';
-  if(wave>=4&&r<.12)kind='brute';else if(wave>=2&&r<.3)kind='crawler';else if(wave>=5&&r<.5)kind='runner';
-  const e=zombie(Math.floor(R(0,ZV.length)),kind);
+  if(wave>=4&&r<.06)kind='brute';else if(wave>=3&&r<.12)kind='stalker';else if(wave>=4&&r<.19)kind='screamer';else if(wave>=2&&r<.34)kind='crawler';else if(wave>=5&&r<.48)kind='runner';
+  const vi=kind==='stalker'?6:kind==='screamer'?7:Math.floor(R(0,6));
+  const e=zombie(vi,kind);
+  if(kind==='stalker'&&!seenStalker){seenStalker=true;msg('DO NOT TAKE YOUR EYES OFF IT',2400)}
   let x,z,tries=0; /* arrive from the edge of view, anywhere in the wide park */
   do{const an=R(0,6.3),d=R(75,100);x=P.x+Math.cos(an)*d;z=P.z+Math.sin(an)*d;tries++}while(Math.hypot(x,z)>138&&tries<60);
   const hd=Math.hypot(x,z);if(hd>138){x*=138/hd;z*=138/hd}
@@ -802,6 +814,7 @@ function shoot(){
   if(ammo<=0){reload();return}
   ammo--;cd=CYCLE;rec=.14;pP+=.012;boltEj=true;upd();sfxShot();
   cam.getWorldDirection(V);V.y+=.0038;V.normalize(); /* rifle zeroed at ~80 m */
+  P.vx-=V.x*.5;P.vz-=V.z*.5;shake=Math.max(shake,.05); /* recoil shoves you back */
   bullets.push({p:cam.position.clone(),v:V.clone().multiplyScalar(320),life:1.4});
   setTimeout(sfxClick,140);setTimeout(sfxClick,250); /* working the bolt */
 }
@@ -814,7 +827,7 @@ function updReload(dt){ /* swap the magazine, then close the bolt */
   }
 }
 function reload(){if(rld!==0||ammo>=MAG||reserve<=0||dead)return;if(scoped)toggleScope();rld=1;rldT=.85;sfxClick();msg('RELOADING',800)}
-function jump(){if(running&&!dead&&P.h<=.001&&!scoped&&!crouch)P.vy=6.4}
+function jump(){if(running&&!dead&&P.gr&&!scoped&&!crouch)P.vy=7}
 function toggleCrouch(){crouch=!crouch;msg(crouch?'CROUCH — STEADIER':'STAND',600)}
 const ZF=[30,24,14];let zi=1;
 function toggleScope(){scoped=!scoped;$('scope').classList.toggle('on',scoped);rifle.visible=!scoped;if(scoped)msg('ZOOM x'+[2,3,5][zi],700)}
@@ -841,13 +854,16 @@ function updBullets(dt){
   }
 }
 function updEnemies(dt){
-  let alive=0,minD=1e9,nearPan=0,runD=1e9,runPan=0;cam.getWorldDirection(V);const hv=Math.hypot(V.x,V.z)||1;
+  let alive=0,minD=1e9,nearPan=0,runD=1e9,runPan=0;cam.getWorldDirection(V);const hv=Math.hypot(V.x,V.z)||1;if(rage>0)rage-=dt;
   for(const e of enemies){
     if(!e.alive){
       if(e.dead>0){
         e.dead-=dt;const f0=Math.min(1,(2-e.dead)/.55),f=1-(1-f0)*(1-f0),th=e.g.rotation.y,fx=e.fdx||0,fz=e.fdz||0;
         e.g.rotation.x=PI/2*f*(fx*Math.sin(th)+fz*Math.cos(th));e.g.rotation.z=-PI/2*f*(fx*Math.cos(th)-fz*Math.sin(th)); /* topples the way the bullet pushed it */
         e.g.position.x+=e.kvx*dt;e.g.position.z+=e.kvz*dt;const dk=Math.exp(-3*dt);e.kvx*=dk;e.kvz*=dk;e.g.position.y=.05*f;collide(e.g.position,.4);
+        const P2=e.P,kk=Math.min(1,dt*4); /* limbs go limp */
+        for(let i=0;i<2;i++){P2.au[i].rotation.x+=(.7-P2.au[i].rotation.x)*kk;P2.au[i].rotation.z+=((i?-1:1)*.6-P2.au[i].rotation.z)*kk;P2.af[i].rotation.x+=(.5-P2.af[i].rotation.x)*kk;P2.lu[i].rotation.x+=(.15-P2.lu[i].rotation.x)*kk;P2.ll[i].rotation.x+=(.4-P2.ll[i].rotation.x)*kk}
+        P2.head.rotation.z+=(.6-P2.head.rotation.z)*kk;if(e.dead>1.4)P2.au[0].rotation.x+=R(-.15,.15);
         if(e.dead<=0)scene.remove(e.g);
       }
       continue;
@@ -860,12 +876,17 @@ function updEnemies(dt){
     e.fzT-=dt;if(e.fzT<=0){e.fz=R(.08,.22);e.fzT=R(1.5,4.5)}
     const frozen=e.fz>0;if(frozen)e.fz-=dt; /* uncanny frame-skips */
     e.bCd-=dt;if(e.burst>0)e.burst-=dt;
+    const seen=(-dx*V.x-dz*V.z)/(d*hv)>.82&&d<80;
+    if(e.kind==='screamer'){e.scCd-=dt;if(e.shr>0)e.shr-=dt;else if(e.scCd<=0&&d<45){e.shr=1.1;e.scCd=R(14,20);shriek(pn);shake=Math.max(shake,.9);rage=6;msg('SHRIEK',700)}}
+    const statue=e.kind==='stalker'&&seen; /* freezes the instant you look at it */
+    if(e.kind==='stalker'&&!statue&&d<45){e.bnT-=dt;if(e.bnT<=0){sfxBones(pn,1-d/45);e.bnT=.35}}
     if(e.bCd<=0&&d<9&&!e.crawl&&(-dx*V.x-dz*V.z)/(d*hv)<.2){e.burst=.7;e.bCd=R(6,10);groan(.9,pn)} /* rushes you when your back is turned */
-    if(e.stun>0)e.stun-=dt;else if(!frozen&&d>e.stopD){const st=e.sp*(.55+.65*Math.max(0,Math.sin(e.ph)))*dt*(e.blind>0?.55:1)*(e.burst>0?2.4:1);e.g.position.x+=dx/d*st;e.g.position.z+=dz/d*st} /* shamble with a lurch */
+    if(e.stun>0)e.stun-=dt;else if(!frozen&&!statue&&!(e.shr>0)&&d>e.stopD){const st=e.sp*(.55+.65*Math.max(0,Math.sin(e.ph)))*dt*(e.blind>0?.55:1)*(e.burst>0?2.4:1)*(rage>0&&e.kind!=='stalker'?1.3:1);e.g.position.x+=dx/d*st;e.g.position.z+=dz/d*st} /* shamble with a lurch */
     collide(e.g.position,e.rad);
     e.g.rotation.y=Math.atan2(dx,dz)+Math.sin(e.ph*.4)*.15;
-    if(!frozen)animZ(e,dt,d);
-    if(d<e.reach&&e.cd<=0){hurt(e.dmg);e.cd=1.2}
+    if(statue){const P3=e.P;for(let i=0;i<2;i++){P3.au[i].rotation.x=-2.5;P3.au[i].rotation.z=(i?-1:1)*.25;P3.af[i].rotation.x=-.3}P3.head.rotation.x=.3;P3.head.rotation.z=.25;P3.jaw.rotation.x=.9}
+    else if(!frozen)animZ(e,dt,d);
+    if(d<e.reach&&e.cd<=0){hurt(e.dmg);e.cd=1.2;const sv=e.kind==='brute'?6:3.2;P.vx+=dx/d*sv;P.vz+=dz/d*sv;shake=Math.max(shake,e.kind==='brute'?.6:.35)} /* their blows throw you back */
   }
   for(let i=0;i<enemies.length;i++){const a=enemies[i];if(!a.alive)continue;
     for(let j=i+1;j<enemies.length;j++){const b=enemies[j];if(!b.alive)continue;
@@ -885,13 +906,22 @@ function hurt(n){
   if(hp<=0){dead=true;msg('THE PARK CLOSES FOR GOOD',99999);setTimeout(()=>location.reload(),3800)}
 }
 /* ---- collision against rides, kiosks, pines, towers ---- */
-function collide(p,rad){
+function groundAt(x,z,feet){ /* the highest surface you can stand on under you (barriers, barrels, crates, the fountain rim, car roofs) */
+  let g=0;
+  for(const c of COLC){const t=c[3];if(t===undefined||t>feet+.4||t<=g)continue;const dx=x-c[0],dz=z-c[1],r=c[2]+.1;if(dx*dx+dz*dz<r*r)g=t}
+  for(const b of COLB){const t=b[4];if(t===undefined||t>feet+.4||t<=g)continue;if(x>b[0]-.1&&x<b[1]+.1&&z>b[2]-.1&&z<b[3]+.1)g=t}
+  return g;
+}
+function collide(p,rad,feet){
+  feet=feet||0; /* low objects only block you if you are below their top */
   for(const c of COLC){
+    if(c[3]!==undefined&&feet>=c[3]-.05)continue;
     const dx=p.x-c[0],dz=p.z-c[1],rr=c[2]+rad,d2=dx*dx+dz*dz;
     if(d2<rr*rr&&d2>1e-6){const d=Math.sqrt(d2),nx=dx/d,nz=dz/d;p.x=c[0]+nx*rr;p.z=c[1]+nz*rr;
       if(p.vx!==undefined){const vn=p.vx*nx+p.vz*nz;if(vn<0){p.vx-=vn*nx;p.vz-=vn*nz}}}
   }
   for(const b of COLB){
+    if(b[4]!==undefined&&feet>=b[4]-.05)continue;
     const cx=Math.max(b[0],Math.min(p.x,b[1])),cz=Math.max(b[2],Math.min(p.z,b[3])),dx=p.x-cx,dz=p.z-cz,d2=dx*dx+dz*dz;
     if(d2<rad*rad){
       if(d2>1e-6){const d=Math.sqrt(d2),nx=dx/d,nz=dz/d;p.x=cx+nx*rad;p.z=cz+nz*rad;
@@ -907,16 +937,24 @@ function updPlayer(dt,t){
   let x=iX,z=iY;if(keys.KeyW)z-=1;if(keys.KeyS)z+=1;if(keys.KeyA)x-=1;if(keys.KeyD)x+=1;
   const len=Math.hypot(x,z);if(len>1){x/=len;z/=len}
   const sm=Math.hypot(mX,mY);if(sm>.96)runT+=dt;else if(sm<.7){runT=0;runOn=false}if(runT>.3)runOn=true; /* sprint only when the stick is held fully out, no flicker */
-  const grounded=P.h<=.001,run=(keys.ShiftLeft||runOn)&&len>0&&!crouch&&grounded&&!scoped;
+  const gh=groundAt(P.x,P.z,P.h),grounded=P.h<=gh+.002&&P.vy<=.01;P.gr=grounded;
+  const run=(keys.ShiftLeft||runOn)&&len>0&&!crouch&&grounded&&!scoped&&!stamLock&&stam>0;
+  /* stamina: sprinting drains it, resting restores it, running dry leaves you gasping */
+  if(run)stam=Math.max(0,stam-22*dt);else stam=Math.min(100,stam+(P.sp<1?18:11)*dt);
+  if(stam<=0&&!stamLock){stamLock=true;breathe(.9,0)}if(stamLock&&stam>25)stamLock=false;
+  P.ui=(P.ui||0)+1;if(P.ui%6===0)$('stamf').style.width=stam+'%';
   const sp=(crouch?2.3:run?7.2:4.4)*(scoped?.5:1),sy=Math.sin(yaw),cy=Math.cos(yaw);
   /* momentum: real acceleration limits, strong grip on the ground, little air control */
   let dvx=(x*cy+z*sy)*sp-P.vx,dvz=(-x*sy+z*cy)*sp-P.vz; /* camera-relative: forward is where you look */const acc=(grounded?(len>0?30:22):6)*dt,dm=Math.hypot(dvx,dvz);
   if(dm>acc){dvx*=acc/dm;dvz*=acc/dm}
   P.vx+=dvx;P.vz+=dvz;P.x+=P.vx*dt;P.z+=P.vz*dt;
-  collide(P,.45);const r=Math.hypot(P.x,P.z);if(r>146){P.x*=146/r;P.z*=146/r}
+  collide(P,.45,P.h+.3);const r=Math.hypot(P.x,P.z);if(r>146){P.x*=146/r;P.z*=146/r}
   P.sp=Math.hypot(P.vx,P.vz);
   /* gravity, jumping, landing bump */
-  if(!grounded||P.vy>0){P.vy-=18*dt;P.h+=P.vy*dt;if(P.h<=0){if(P.vy<-4){P.dip=Math.min(.25,-P.vy*.025);sfxThud(-P.vy)}P.h=0;P.vy=0}}
+  if(!grounded){P.vy-=18*dt;P.h+=P.vy*dt;
+    const g2=groundAt(P.x,P.z,P.h);if(g2>P.h+.001&&g2<=P.h+.4){P.h=g2;P.vy=0} /* mantle: grab a ledge within reach in mid-jump */
+    if(P.vy<=0&&P.h<=gh){if(P.vy<-4){P.dip=Math.min(.25,-P.vy*.025);sfxThud(-P.vy);shake=Math.max(shake,.12)}P.h=gh;P.vy=0}}
+  else P.h+=(gh-P.h)*Math.min(1,dt*14); /* steps up onto low ledges smoothly */
   P.dip=Math.max(0,P.dip-dt*.8);P.eye+=((crouch?1.1:1.7)-P.eye)*Math.min(1,dt*10);P.bob+=P.sp*dt*(run?1.5:1.2);
   const sph=Math.floor(P.bob*3.2/PI);if(sph!==P.stp){P.stp=sph;if(grounded&&P.sp>1.2)sfxStep(P.x,P.z,crouch?.35:run?1.2:.8)}
   const bobY=grounded?Math.sin(P.bob*3.2)*.028*Math.min(1,P.sp/4)*(scoped?.3:1):0;
@@ -925,6 +963,7 @@ function updPlayer(dt,t){
   const strafe=P.vx*cy-P.vz*sy,zs=ZF[zi]/14;
   cam.rotation.order='YXZ';cam.rotation.y=yaw+Math.sin(t*.0011)*.0016*sw*zs;cam.rotation.x=pitch+Math.cos(t*.0014)*.0012*sw*zs;
   cam.rotation.z=scoped?0:Math.max(-.018,Math.min(.018,-strafe*.0025)); /* lean into strafes */
+  if(shake>0){cam.position.x+=R(-1,1)*shake*.05;cam.position.y+=R(-1,1)*shake*.04;cam.rotation.z+=R(-1,1)*shake*.03;cam.rotation.x+=R(-1,1)*shake*.012;shake=Math.max(0,shake-dt*1.6)} /* impacts shake the view */
   const tf=scoped?ZF[zi]:(run?72:70);if(Math.abs(cam.fov-tf)>.05){cam.fov+=(tf-cam.fov)*Math.min(1,dt*(scoped?9:5));cam.updateProjectionMatrix()}
 }
 /* ---- rifle: inertia sway, walking bob, bolt cycle, round-by-round reload ---- */
@@ -1039,6 +1078,16 @@ function sfxClack(v,p){if(!AC||AC.state!=='running')return;nz(AC.currentTime,.04
 function sfxHeart(){if(!AC||AC.state!=='running')return;const t=AC.currentTime;nv('sine',70,t,.16,.35,0,mg);nv('sine',58,t+.17,.18,.26,0,mg)}
 function sfxPickup(type){if(!AC||AC.state!=='running')return;const t=AC.currentTime,a=type==='med'?660:880;nv('sine',a,t,.35,.06,0,mg);nv('sine',a*1.5,t+.09,.45,.06,0,mg)}
 function breathe(v,pn){if(!AC||AC.state!=='running')return;const t=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=nbuf;f.type='bandpass';f.frequency.setValueAtTime(1500,t);f.frequency.linearRampToValueAtTime(2300,t+.45);f.Q.value=1.2;g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.025+.06*v,t+.3);g.gain.exponentialRampToValueAtTime(.0001,t+.75);s.connect(f);f.connect(g);g.connect(pan(pn));s.start(t,Math.random()*1.4,.8)}
+function sfxBones(pn,v){if(!AC||AC.state!=='running')return;const t=AC.currentTime,d=pan(pn);nz(t,.03,'bandpass',2600,.04+.05*v,d);nz(t+.07,.025,'bandpass',3400,.03+.04*v,d);nv('triangle',180,t,.05,.03*v,0,mg)}
+function shriek(pn){ /* the screamer: loud, distorted, impossible to ignore */
+  if(!AC||AC.state!=='running')return;const t=AC.currentTime,o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter(),ws=AC.createWaveShaper();
+  const cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i/128-1;cv[i]=Math.tanh(x*4)}ws.curve=cv;
+  o.type='sawtooth';o2.type='square';o.frequency.setValueAtTime(520,t);o.frequency.exponentialRampToValueAtTime(1500,t+.4);o.frequency.exponentialRampToValueAtTime(800,t+1.1);
+  o2.frequency.setValueAtTime(260,t);o2.frequency.exponentialRampToValueAtTime(760,t+.4);o2.frequency.exponentialRampToValueAtTime(400,t+1.1);
+  f.type='bandpass';f.Q.value=2;f.frequency.setValueAtTime(1200,t);f.frequency.linearRampToValueAtTime(2200,t+.5);f.frequency.linearRampToValueAtTime(900,t+1.1);
+  g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.2,t+.06);g.gain.exponentialRampToValueAtTime(.0001,t+1.2);
+  o.connect(ws);o2.connect(ws);ws.connect(f);f.connect(g);g.connect(pan(pn));o.start(t);o2.start(t);o.stop(t+1.25);o2.stop(t+1.25);
+}
 function scream(v,pn){ /* runners shriek as they close in */
   if(!AC||AC.state!=='running')return;const t=AC.currentTime,o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter();
   o.type='sawtooth';o2.type='square';o.frequency.setValueAtTime(380,t);o.frequency.exponentialRampToValueAtTime(920,t+.35);o.frequency.exponentialRampToValueAtTime(520,t+.85);
