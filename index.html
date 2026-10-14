@@ -76,6 +76,12 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 .ubox h3{color:#ffe36b;letter-spacing:3px;font-weight:400;margin-bottom:6px}#upsc{color:#9fd8d0;margin-bottom:10px;letter-spacing:2px}
 .urow{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid rgba(255,255,255,.12);padding:9px 0}.urow b{display:block;font-weight:400;color:#f2b8c6;letter-spacing:1px}.urow small{opacity:.65}
 .urow button,#upclose{background:none;border:1px solid #ffe36b;color:#ffe36b;padding:8px 12px;font:12px 'DotGothic16',monospace;white-space:nowrap}.urow button[disabled]{opacity:.35;border-color:#777;color:#999}#upclose{margin-top:12px;width:100%}
+#obj{position:absolute;top:44px;left:50%;transform:translateX(-50%);font-size:12px;letter-spacing:2px;color:#ffe36b;text-align:center;white-space:nowrap;text-shadow:0 1px 4px #000}
+#arrow{position:absolute;top:64px;left:50%;margin-left:-9px;font-size:18px;color:#ffe36b;display:none;text-shadow:0 1px 4px #000}
+#radio{position:absolute;left:16px;top:84px;max-width:min(72vw,430px);font-size:12px;line-height:1.5;color:#9fd8d0;letter-spacing:1px;opacity:0;transition:opacity .6s;border-left:2px solid #9fd8d0;padding:4px 8px;background:rgba(0,0,0,.4)}
+#win{position:fixed;inset:0;z-index:80;background:rgba(5,3,10,.9);display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;letter-spacing:3px}
+#win h1{color:#ffe36b;font-weight:400;font-size:30px;margin-bottom:10px}#win p{color:#d9d4e4;margin-bottom:18px;line-height:1.8}
+#win button{background:none;border:1px solid #ffe36b;color:#ffe36b;padding:10px 20px;font:13px 'DotGothic16',monospace;margin:5px;letter-spacing:3px}
 </style></head><body>
 <div id="intro"><div class="crt"></div><h1>KAWASAN</h1><h3>カワサン</h3><h2>廃墟遊園地</h2>
 <p>YUMEGAOKA AMUSEMENT PARK · CLOSED 1998<br>THE STAFF NEVER WENT HOME.<br>閉園後も、彼らは帰らなかった。</p>
@@ -83,12 +89,13 @@ canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
 <div id="load"><div id="sun"></div><div id="city"></div><div id="grid"></div><div class="crt"></div>
 <div id="lbox"><div id="lt">NOW LOADING <span>ロード中</span><b>...</b></div><div id="bar"><i id="barf"></i></div><div id="lp">0%</div><div id="tip"></div></div>
 <div id="lc">© 1998 KAWASAN SOFT　廃墟遊園地</div></div>
-<div id="hud"><div id="top"><div id="wv">WAVE 0 • KILLS 0</div><div id="fps"></div></div><div id="msg"></div>
+<div id="hud"><div id="top"><div id="wv">WAVE 0 • KILLS 0</div><div id="fps"></div></div><div id="msg"></div><div id="obj"></div><div id="arrow">▲</div><div id="radio"></div>
 <div id="hpw">VITALITY<div id="hpb"><div id="hp"></div></div></div><div id="batw">LIGHT<div class="bb"><i id="batf"></i></div></div><div id="stamw">STAMINA<div class="bb"><i id="stamf"></i></div></div>
 <div id="ammo"><span id="am">12 / 48</span><small>SEMI-AUTO SNIPER</small></div>
 <div id="scope"><div id="mh"></div><div id="mv"></div><div id="sd"></div></div><div id="cross"></div></div>
 <div id="prompt">▸ STAFF OFFICE · UPGRADES</div>
 <div id="upgp"><div class="ubox"><h3>事務所 · STAFF OFFICE</h3><div id="upsc"></div><div id="uplist"></div><button id="upclose">CLOSE</button></div></div>
+<div id="win"><h1>EVACUATED</h1><p id="winst"></p><button id="winkeep">KEEP PLAYING</button><button id="winre">RESTART</button></div>
 <div id="vig"></div><div id="fear"></div><div id="sp"></div><div id="dmg"></div>
 <div id="lookPad" class="t"></div><div id="moveZone" class="t"></div><div id="movePad" class="t"><div id="knob"></div></div>
 <button id="fire" class="b">FIRE</button><button id="aim" class="b">AIM</button><button id="rld" class="b">RLD</button><button id="hold" class="b">BRTH</button><button id="zoom" class="b">ZOOM</button><button id="jump" class="b">JUMP</button><button id="crch" class="b">CRCH</button><button id="flt" class="b">LGHT</button><button id="sens">SENS 1.0</button><button id="fxb">FX</button>
@@ -103,6 +110,8 @@ let yaw=0,pitch=0,pY=0,pP=0,mX=0,mY=0,scoped=false,hold=false,breath=4,running=f
 let hp=100,ammo=12,reserve=48,cd=0,rld=0,rec=0,wave=0,kills=0,score=0,toSpawn=0,spawnT=2,gap=0,msgT;
 const keys={},enemies=[],bullets=[],dummy=new THREE.Object3D(),clock=new THREE.Clock(),V=new THREE.Vector3();
 let iX=0,iY=0,runOn=false,runT=0,fearV=0,fearT=0,bT=0,EYEG=null;
+let windV=.3,windA=.6,rain=0,RN=null,RNU=null,GRM=null,WG=null,HA=null,RA=null,GA=null,AMBH=null,EVH=null,FLSH=null,OBJ=null,PROMPT=null,radioI=0,radioTI=0,WLAMP=null,BULBS=null;
+const FLARES=[],PAR=[],evt={boom:45,siren:100,heli:110,radio:40},WINDU={uTime:{value:0},uWind:{value:.3}};
 let FOREST=null,stam=100,stamLock=false,shake=0,rage=0,seenStalker=false;
 let SUN=null,nightV=.12,hV=.08,flashT=25,flashP=0,thunderT=0,skyTime=0;
 let FL=null,flOn=false,batt=100,QL=2,okRuns=0,weedsM=null,scT=3,hbT=0,RT=null;const PK=[];
@@ -181,7 +190,7 @@ function build(){
   const pl=(c,i,dd,x,y,z)=>{const l=new THREE.PointLight(c,i,dd);l.position.set(x,y,z);scene.add(l);return l};
   LT=[pl(0xffb060,1.4,46,0,5,80),pl(0xff2848,1,42,-30,4,-12),pl(0x40ffe0,.9,48,30,6,-8)];
   /* weeds + dead trees: the park is being reclaimed */
-  weedsM=inst(new THREE.ConeGeometry(.28,1.4,3,1,true).translate(0,.7,0),new THREE.MeshLambertMaterial({color:0xffffff,side:2}),1500,i=>{const wx=R(-150,150),wz=R(-150,150);dummy.position.set(wx,terrainY(wx,wz),wz);dummy.scale.setScalar(R(.7,2));dummy.rotation.set(R(-.3,.3),R(0,6),R(-.3,.3));return hc(R(.08,.16),.3,R(.12,.22))});
+  weedsM=inst(new THREE.ConeGeometry(.28,1.4,3,1,true).translate(0,.7,0),swayMat(new THREE.MeshLambertMaterial({color:0xffffff,side:2}),1),1500,i=>{const wx=R(-150,150),wz=R(-150,150);dummy.position.set(wx,terrainY(wx,wz),wz);dummy.scale.setScalar(R(.7,2));dummy.rotation.set(R(-.3,.3),R(0,6),R(-.3,.3));return hc(R(.08,.16),.3,R(.12,.22))});
   const ft=[];for(let i=0;i<90;i++){const an=R(0,6.3),r=R(152,208),x=Math.cos(an)*r,z=Math.sin(an)*r;ft.push({x,z,y:terrainY(x,z),s:R(.8,1.6)})}
   inst(C(.5,9,6).translate(0,4.5,0),L(0x2a2220),90,i=>{dummy.position.set(ft[i].x,ft[i].y,ft[i].z);dummy.scale.setScalar(ft[i].s)}); /* dead trees beyond the fence */
   inst(new THREE.IcosahedronGeometry(4,0),L(0x1a2f24),90,i=>{dummy.position.set(ft[i].x,ft[i].y+10*ft[i].s*.9,ft[i].z);dummy.scale.setScalar(ft[i].s)});
@@ -193,9 +202,9 @@ function build(){
     pp.push({x,z,y:terrainY(x,z),h:R(11,19),r:R(.45,.75),old:Math.random()<.3,ry:R(0,6),lean:R(-.05,.05)});
   }
   const pn=pp.length;pp.forEach(p=>{COLC.push([p.x,p.z,p.r+.2]);aoAdd(p.x,p.z,p.r*3+1.3)});
-  inst(C(1,1,6),L(0xffffff),pn,i=>{const p=pp[i];dummy.position.set(p.x,p.y+p.h/2,p.z);dummy.scale.set(p.r,p.h,p.r);dummy.rotation.z=p.lean;return 0x3a2a1e});
+  inst(C(1,1,6),swayMat(L(0xffffff),2),pn,i=>{const p=pp[i];dummy.position.set(p.x,p.y+p.h/2,p.z);dummy.scale.set(p.r,p.h,p.r);dummy.rotation.z=p.lean;return 0x3a2a1e});
   const TR=[3.4,3,2.4,1.8,1.1],TH=[4,3.6,3.2,2.8,2.4];
-  for(let j=0;j<5;j++)inst(new THREE.ConeGeometry(1,1,8),L(0xffffff),pn,i=>{
+  for(let j=0;j<5;j++)inst(new THREE.ConeGeometry(1,1,8),swayMat(L(0xffffff),2),pn,i=>{
     const p=pp[i],sc=p.h/15,w=TR[j]*sc*(p.old?.85:1);
     if(p.old&&j>=3){dummy.scale.setScalar(0);return 0}
     dummy.position.set(p.x,p.y+p.h*(.3+j*.15)+TH[j]*sc*.3,p.z);dummy.rotation.y=p.ry;dummy.scale.set(w,TH[j]*sc,w);
@@ -207,7 +216,7 @@ function build(){
   inst(C(.15,32,5),L(0x8a8a8a),8,i=>{dummy.rotation.z=i*PI/8},wheel);
   inst(B(2.4,2.2,2),L(0xffffff),12,i=>{const a=i*PI/6;dummy.position.set(Math.cos(a)*16,Math.sin(a)*16-1.2,0);if(i%4===1)dummy.scale.setScalar(0);return hc(.04+.02*(i%3),.35,.28)},wheel); /* rusted, some gondolas torn away */
   for(const z of[-2.4,2.4])for(const s of[-1,1])add(C(.4,20,5),L(0x777777),s*5,9,z,scene).rotation.z=-s*.27,scene.children[scene.children.length-1].position.z=-58+z;
-  inst(new THREE.SphereGeometry(.25,6,5),new THREE.MeshBasicMaterial({color:0xffffff}),24,i=>{const a=i*PI/12;dummy.position.set(Math.cos(a)*16,Math.sin(a)*16,1.7);return i%3?0x1a1010:hc(.05,.8,.5)},wheel);
+  WLAMP=inst(new THREE.SphereGeometry(.25,6,5),new THREE.MeshBasicMaterial({color:0xffffff}),24,i=>{const a=i*PI/12;dummy.position.set(Math.cos(a)*16,Math.sin(a)*16,1.7);return i%3?0x1a1010:hc(.05,.8,.5)},wheel);
   for(const x of[-5,5])for(const dz of[-2.4,2.4]){COLC.push([x,-58+dz,.7]);aoAdd(x,-58+dz,1.4)}COLC.push([-30,-12,7.6]);aoAdd(-30,-12,9);
   /* carousel */
   carousel=new THREE.Group();carousel.position.set(-30,0,-12);scene.add(carousel);
@@ -234,7 +243,7 @@ function build(){
   lp.forEach(l=>COLC.push([l[0],l[1],.3]));
   inst(C(.12,6,5).translate(0,3,0),L(0x333333),24,i=>{dummy.position.set(lp[i][0],0,lp[i][1])});
   bulbMat=new THREE.MeshBasicMaterial({color:0xffffff});
-  inst(B(.4,.4,.4),bulbMat,24,i=>{dummy.position.set(lp[i][0],6.1,lp[i][1]);return i%4?0xffe3a0:0x443a30});
+  BULBS=inst(B(.4,.4,.4),bulbMat,24,i=>{dummy.position.set(lp[i][0],6.1,lp[i][1]);return i%4?0xffe3a0:0x443a30});
 }
 /* ================= REALISTIC ROLLER COASTER (banked steel-and-timber track, lattice towers, chain lift, running train) ================= */
 const V3=THREE.Vector3,STRUT=new THREE.CylinderGeometry(1,1,1,6).rotateX(PI/2),CM4=new THREE.Matrix4();
@@ -386,7 +395,7 @@ function buildExtras(){
     const r0=(v*(1-steep)+.52*steep)*hh,g0=(v*.97*(1-steep)+.5*steep)*hh,b0=(v*.88*(1-steep)+.52*steep)*hh;
     tc[i*3]=r0*(1-snow)+.95*snow;tc[i*3+1]=g0*(1-snow)+.95*snow;tc[i*3+2]=b0*(1-snow)+1*snow}
   tg.setAttribute('color',new THREE.BufferAttribute(tc,3));
-  add(tg,new THREE.MeshLambertMaterial({map:grass,color:0xcfd0c0,vertexColors:true}),0,0,0); /* rolling hills around the park */
+  GRM=add(tg,new THREE.MeshLambertMaterial({map:grass,color:0xcfd0c0,vertexColors:true}),0,0,0).material; /* rolling hills around the park */
   add(new THREE.CircleGeometry(34,40).rotateX(-PI/2),new THREE.MeshLambertMaterial({map:ctex(256,256,tileTex,6),color:0xc8c8d0}),0,.03,-5);
   add(new THREE.PlaneGeometry(10,62).rotateX(-PI/2),new THREE.MeshLambertMaterial({map:ctex(256,256,tileTex,2,12),color:0xc8c8d0}),0,.035,60);
   add(new THREE.PlaneGeometry(140,56).rotateX(-PI/2),new THREE.MeshLambertMaterial({map:ctex(256,256,g=>{
@@ -462,7 +471,7 @@ function buildExtras(){
   for(let i=0;i<16;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:mt,color:0xb89ad0,transparent:true,opacity:.2,depthWrite:false}));
     sp.position.set(R(-130,130),R(2.5,6),R(-110,130));sp.scale.set(R(30,48),R(7,11),1);sp.userData.v=R(.4,1);scene.add(sp);XT.mist.push(sp)}
   XT.fire=null; /* no floating embers */
-  buildApocalypse();buildWorld2();buildForest();buildAO();
+  buildApocalypse();buildWorld2();buildForest();buildAO();buildWeather();buildObjective();buildEvents();
   XT.crows=[];const ct=ctex(64,32,g=>{g.fillStyle='#000';g.beginPath();g.moveTo(2,16);g.quadraticCurveTo(16,2,32,16);g.quadraticCurveTo(48,2,62,16);g.quadraticCurveTo(48,12,32,22);g.quadraticCurveTo(16,12,2,16);g.fill()},1);
   for(let i=0;i<6;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:ct,transparent:true,depthWrite:false,fog:false}));sp.visible=false;scene.add(sp);XT.crows.push({sp,a:R(0,6.3),v:R(.015,.03)*(i%2?1:-1),y:R(55,95),ph:R(0,6)})}
 }
@@ -539,7 +548,7 @@ function buildForest(){ /* one merged pine, instanced hundreds of times over the
   const K6=new THREE.ConeGeometry(1,1,6),pine=mergeColored([G(UC,0x3a2a1e,0,2,0,.5,4,.5),G(K6,0x1c3a28,0,5,0,3.4,4.5,3.4),G(K6,0x1a3424,0,8,0,2.7,4,2.7),G(K6,0x16301f,0,10.8,0,1.9,3.6,1.9)]);
   const pts=[];let tries=0;
   while(pts.length<760&&tries++<6000){const an=R(0,6.3),r=R(118,215),x=Math.cos(an)*r,z=Math.sin(an)*r;if(flatInf(x,z)>.3)continue;const yy=terrainY(x,z);if(yy>140||slopeAt(x,z)>.7)continue;pts.push([x,z,R(.8,1.9)])}
-  const fm=new THREE.InstancedMesh(pine,new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true}),pts.length),c=new THREE.Color();
+  const fm=new THREE.InstancedMesh(pine,swayMat(new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true}),0),pts.length),c=new THREE.Color();
   pts.forEach((p,i)=>{
     dummy.position.set(p[0],terrainY(p[0],p[1])-.3,p[1]);dummy.rotation.set(0,R(0,6),0);dummy.scale.set(p[2],p[2]*R(.9,1.15),p[2]);dummy.updateMatrix();fm.setMatrixAt(i,dummy.matrix);
     const v=R(.6,1);c.setRGB(v,v,v);fm.setColorAt(i,c);
@@ -644,7 +653,17 @@ function renderUpg(){
 }
 function openUpg(){paused=true;firing=false;mX=mY=0;$('upgp').style.display='flex';renderUpg()}
 function closeUpg(){paused=false;$('upgp').style.display='none'}
-function updOffice(){const near=Math.hypot(P.x-32,P.z-76.4)<3.2&&!paused;if(near!==offNear){offNear=near;$('prompt').style.display=near?'block':'none'}}
+function updOffice(){
+  let mode=null,txt='';
+  if(!paused){
+    const dO=Math.hypot(P.x-32,P.z-76.4),dR=Math.hypot(P.x-36.4,P.z-76.4),dG=OBJ?Math.hypot(P.x-OBJ.gx,P.z-OBJ.gz):99;
+    if(OBJ&&OBJ.phase===1&&dG<4){mode='gen';txt='▸ FUEL AND START THE GENERATOR'}
+    else if(OBJ&&OBJ.phase===3&&dR<3){mode='radio';txt='▸ CALL FOR EVACUATION'}
+    else if(dO<3.2){mode='office';txt='▸ STAFF OFFICE · UPGRADES'}
+  }
+  if(mode!==PROMPT){PROMPT=mode;const p=$('prompt');p.style.display=mode?'block':'none';if(mode)p.textContent=txt}
+}
+function promptAction(){if(PROMPT==='office')openUpg();else if(PROMPT==='gen')startGenerator();else if(PROMPT==='radio')callEvac()}
 /* ================= POST FX (auto-checked at start-up; the FX button / P key toggles it) ================= */
 let FX=null;
 const FXVS='varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}';
@@ -728,10 +747,250 @@ function buildAO(){
   pts.forEach((p,i)=>{dummy.position.set(p[0],.06,p[1]);dummy.rotation.set(0,R(0,3),0);dummy.scale.set(p[2],1,p[3]);dummy.updateMatrix();pm.setMatrixAt(i,dummy.matrix)});
   pm.frustumCulled=false;pm.renderOrder=2;scene.add(pm);
 }
+/* ================= WEATHER: wind that bends the trees and grass, rain that thickens with the night, drifting fog ================= */
+function swayMat(mat,mode){ /* trees and grass lean and spring back in the wind (done in the vertex shader, no CPU cost) */
+  const cfg=[['instanceMatrix[3].y',22,.7],['instanceMatrix[3].y',1.5,.3],['0.',24,.55]][mode];
+  mat.customProgramCacheKey=()=>'sway'+mode;
+  mat.onBeforeCompile=sh=>{
+    sh.uniforms.uTime=WINDU.uTime;sh.uniforms.uWind=WINDU.uWind;
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <project_vertex>',`vec4 wpos=instanceMatrix*vec4(transformed,1.0);
+        float ph=instanceMatrix[3].x*.13+instanceMatrix[3].z*.09;
+        float sw=(sin(uTime*1.6+ph)+.5*sin(uTime*2.9+ph*1.7))*uWind;
+        float hy=clamp((wpos.y-${cfg[0]})/${Number(cfg[1]).toFixed(1)},0.,1.);
+        wpos.x+=sw*hy*hy*${cfg[2]};wpos.z+=sw*hy*hy*${(cfg[2]*.55).toFixed(2)};
+        vec4 mvPosition=modelViewMatrix*wpos;
+        gl_Position=projectionMatrix*mvPosition;`);
+  };
+  return mat;
+}
+function buildWeather(){
+  const N=1600,pos=new Float32Array(N*6),endA=new Float32Array(N*2),seed=new Float32Array(N*2);
+  for(let i=0;i<N;i++){const x=R(0,60),y=R(0,30),z=R(0,60),sd=Math.random();for(let k=0;k<2;k++){const j=i*2+k;pos[j*3]=x;pos[j*3+1]=y;pos[j*3+2]=z;endA[j]=k;seed[j]=sd}}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('aEnd',new THREE.BufferAttribute(endA,1));g.setAttribute('aSeed',new THREE.BufferAttribute(seed,1));
+  RNU={uTime:{value:0},uInt:{value:0},uCam:{value:new THREE.Vector3()},uDir:{value:new THREE.Vector2(.6,.3)},uWind:{value:0}};
+  RN=new THREE.LineSegments(g,new THREE.ShaderMaterial({uniforms:RNU,transparent:true,depthWrite:false,fog:false,
+    vertexShader:`attribute float aEnd;attribute float aSeed;uniform float uTime,uInt,uWind;uniform vec3 uCam;uniform vec2 uDir;varying float vA;
+      void main(){
+        vec3 p=position;
+        float y=mod(p.y-uTime*(20.+aSeed*8.),30.);
+        vec3 w=vec3(uCam.x+mod(p.x-uCam.x,60.)-30.,uCam.y-12.+y,uCam.z+mod(p.z-uCam.z,60.)-30.);
+        w.xz+=uDir*uWind*(30.-y)*.12;
+        w+=aEnd*vec3(-uDir.x*uWind*.3,1.2,-uDir.y*uWind*.3);
+        vA=step(aSeed,uInt)*.38*(1.-aEnd*.6);
+        gl_Position=projectionMatrix*viewMatrix*vec4(w,1.);}`,
+    fragmentShader:'varying float vA;void main(){gl_FragColor=vec4(.72,.8,.92,vA);}'}));
+  RN.frustumCulled=false;RN.visible=false;scene.add(RN);
+}
+function updWeather(dt,t){
+  const ts=t*.001,stormy=.5+.5*Math.sin(skyTime*.011+1.3);
+  const rT=Math.max(0,Math.min(1,(nightV-.28)*1.15*(.45+.55*stormy)));
+  rain+=(rT-rain)*Math.min(1,dt*.04);
+  const gust=Math.max(0,Math.sin(ts*.31+1.7)*Math.sin(ts*.113));
+  windV=Math.max(.06,Math.min(1,.22+.16*Math.sin(ts*.19)+.4*gust+.35*rain));
+  windA+=dt*.02*Math.sin(ts*.07);
+  WX=Math.cos(windA)*windV*5;WZ=Math.sin(windA)*windV*5; /* the same wind pushes your bullets */
+  WINDU.uTime.value=ts;WINDU.uWind.value=windV;
+  if(RN){RN.visible=rain>.04&&QL>=1;if(RN.visible){RNU.uTime.value=ts;RNU.uInt.value=rain;RNU.uCam.value.copy(cam.position);RNU.uDir.value.set(Math.cos(windA),Math.sin(windA));RNU.uWind.value=windV}}
+  if(GRM)GRM.color.setScalar(.81-.2*rain); /* wet ground darkens */
+  if(PUDM)PUDM.opacity=.78+.2*rain;
+  scene.fog.density=.015+.007*rain;
+}
+/* ================= AMBIENT EVENTS: distant explosions, sirens, radio chatter, helicopter flyovers with supply drops ================= */
+const RADIO=["…all units, this is Yumegaoka control… the perimeter has failed… repeat, the perimeter has failed…","…they walk straight through the fence. Don't aim at the chest. The head. Always the head…","…the mascots were the first out of the costume wing. Nobody saw it happen…","…anyone alive on the south side? The parking lot is overrun. Stay off the road…","…fires at the east gate and along the coaster. The whole park is burning…","…the pale one only moves when you are not looking. Do not blink… do not look away…","…listen: when the lights come back on, they slow down. They remember the light…","…there is a flare and a crate on the way. Move fast, they can smell the drop…"];
+const TAPES=["The night manager: 'We closed at six. At nine the Ferris wheel started on its own. At ten, the screaming began from the carousel.'","A mechanic: 'The generator is behind the Ferris wheel. I hid three fuel cans: the camp, the helicopter wreck, the parking lot.'","A guard: 'They remember the park. They walk the old routes, promenade, plaza, carousel, like a shift that never ended.'","A voice: 'If you hear this, you stayed too long. Light the wheel. Call from the staff office. Then go.'"];
+let PARG=null;
+function sfxRadioVoice(dur){ /* unintelligible radio speech: squelch, voice-like syllables, static */
+  if(!AC||AC.state!=='running')return;const t0=AC.currentTime;nz(t0,.09,'bandpass',1800,.05);
+  let t=t0+.12;const end=t0+dur;
+  while(t<end){
+    const syl=R(.07,.17),gap=Math.random()<.2?R(.12,.3):R(.01,.05),f0=R(95,170),o=AC.createOscillator(),g=AC.createGain(),bp=AC.createBiquadFilter(),hp=AC.createBiquadFilter();
+    o.type='sawtooth';o.frequency.setValueAtTime(f0,t);o.frequency.linearRampToValueAtTime(f0*R(.8,1.25),t+syl);bp.type='bandpass';bp.frequency.value=R(500,2200);bp.Q.value=3;hp.type='highpass';hp.frequency.value=280;
+    g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.05,t+.02);g.gain.linearRampToValueAtTime(.0001,t+syl);
+    o.connect(bp);bp.connect(hp);hp.connect(g);g.connect(mg);o.start(t);o.stop(t+syl+.02);nz(t,syl,'bandpass',2400,.012);t+=syl+gap;
+  }
+  nz(end,.06,'bandpass',1800,.05);
+}
+function radioSay(text,ms){
+  const el=$('radio');el.textContent='';el.style.opacity=1;let i=0;const step=Math.max(18,Math.min(60,(ms||5000)/text.length/1.4));
+  clearInterval(radioTI);radioTI=setInterval(()=>{el.textContent=text.slice(0,++i);if(i>=text.length){clearInterval(radioTI);setTimeout(()=>{el.style.opacity=0},Math.max(2500,(ms||5000)*.4))}},step);
+  sfxRadioVoice(text.length*step/1000+.6);
+}
+function distantBoom(){
+  const a=R(0,6.3),d=R(150,320),dx=Math.cos(a),dz=Math.sin(a);
+  FLSH.position.set(cam.position.x+dx*d,R(8,40),cam.position.z+dz*d);FLSH.visible=true;FLSH.userData.t=0;FLSH.userData.sc=d*.5;
+  setTimeout(()=>{sfxBoom(.28,dx*Math.cos(yaw)-dz*Math.sin(yaw));shake=Math.max(shake,.08)},Math.min(3,d/110)*1000); /* the flash comes first, the sound arrives late */
+}
+function startSiren(){
+  if(!AC||AC.state!=='running')return;const t=AC.currentTime,dur=22,o=AC.createOscillator(),o2=AC.createOscillator(),g=AC.createGain(),f=AC.createBiquadFilter(),p=AC.createStereoPanner?AC.createStereoPanner():null;
+  o.type='sawtooth';o2.type='square';o.frequency.setValueAtTime(520,t);o2.frequency.setValueAtTime(260,t);
+  for(let k=0;k<11;k++){const tt=t+k*2,hi=k%2===0;o.frequency.linearRampToValueAtTime(hi?880:520,tt+2);o2.frequency.linearRampToValueAtTime(hi?440:260,tt+2)}
+  f.type='lowpass';f.frequency.value=900;g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(.03,t+4);g.gain.setValueAtTime(.03,t+dur-5);g.gain.linearRampToValueAtTime(.0001,t+dur);
+  o.connect(f);o2.connect(f);f.connect(g);
+  if(p){p.pan.setValueAtTime(R(-.9,.9),t);p.pan.linearRampToValueAtTime(R(-.9,.9),t+dur);g.connect(p);p.connect(mg);p.connect(wet)}else{g.connect(mg);g.connect(wet)}
+  o.start(t);o2.start(t);o.stop(t+dur+.1);o2.stop(t+dur+.1);
+}
+function mkHeli(){
+  const body=mergeColored([G(US,0x1c2024,0,0,0,1.3,1,2.6),G(US,0x2a3a4a,0,.2,2.2,.9,.7,.9),G(UB,0x1c2024,0,.3,-4,.35,.4,3.4),G(UB,0x1c2024,0,1,-5.8,.1,1.2,.9),G(UB,0x111111,-.9,-1.1,0,.08,.08,3),G(UB,0x111111,.9,-1.1,0,.08,.08,3),G(UC,0x111111,0,1.2,0,.12,.6,.12),G(UB,0xff3030,0,-.6,3.1,.2,.2,.2)]);
+  const g=new THREE.Group();g.add(new THREE.Mesh(body,new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true,emissive:0x080808})));
+  const rotor=new THREE.Group();rotor.position.y=1.5;g.add(rotor);
+  for(let i=0;i<2;i++){const b=new THREE.Mesh(UB,new THREE.MeshBasicMaterial({color:0x111111}));b.scale.set(9,.05,.35);b.rotation.y=i*PI/2;rotor.add(b)}
+  const beam=new THREE.Mesh(new THREE.ConeGeometry(6,1,16,1,true).translate(0,-.5,0).rotateX(-PI/2),new THREE.MeshBasicMaterial({color:0xfff2d0,transparent:true,opacity:.09,depthWrite:false,blending:THREE.AdditiveBlending,side:2}));beam.frustumCulled=false;scene.add(beam);
+  const spot=new THREE.Sprite(new THREE.SpriteMaterial({map:AP.soft,color:0xfff2d0,transparent:true,opacity:.55,depthWrite:false,blending:THREE.AdditiveBlending}));spot.scale.set(16,16,1);scene.add(spot);
+  g.visible=beam.visible=spot.visible=false;scene.add(g);
+  return{g,rotor,beam,spot,active:false,t:0,st:0};
+}
+function buildEvents(){
+  AMBH=mkHeli();EVH=mkHeli();
+  FLSH=new THREE.Sprite(new THREE.SpriteMaterial({map:AP.soft,color:0xff8a3a,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,fog:false}));FLSH.visible=false;FLSH.userData={t:9,sc:60};scene.add(FLSH);
+}
+function spawnHeli(drop){
+  const h=AMBH,a=R(0,6.3),dx=Math.cos(a),dz=Math.sin(a),cx=P.x+R(-50,50),cz=P.z+R(-50,50);
+  h.start=[cx-dx*200,cz-dz*200];h.dir=[dx,dz];h.spd=38;h.alt=70;h.t=0;h.dur=400/h.spd;h.drop=drop;h.dropped=false;h.dropAt=200/h.spd;h.active=true;h.g.visible=h.beam.visible=h.spot.visible=true;
+  radioSay(drop?"…supply drop inbound on your position. Look for the red flare…":"…sweeping the park with the light. No survivors in the beam… keep your head down…",4200);
+}
+function spawnPara(x,z){
+  PARG=PARG||mergeColored([G(US,0xe8e0d0,0,3.4,0,2.2,1.1,2.2),G(UB,0xb02a24,0,3.9,0,1.2,.6,2.2),G(UB,0x7a5a30,0,.4,0,.9,.7,.9),G(UB,0x999999,-.7,2,-.7,.03,2.8,.03),G(UB,0x999999,.7,2,.7,.03,2.8,.03),G(UB,0x999999,-.7,2,.7,.03,2.8,.03),G(UB,0x999999,.7,2,-.7,.03,2.8,.03)]);
+  const m=new THREE.Mesh(PARG,new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true,emissive:0x1a1a1a}));m.position.set(x,terrainY(x,z)+62,z);scene.add(m);PAR.push({m,x,z});
+}
+function launchEvac(){
+  const h=EVH,a=R(0,6.3);h.st=1;h.t=0;h.active=true;h.from=[OBJ.lx+Math.cos(a)*220,OBJ.lz+Math.sin(a)*220];h.g.visible=h.beam.visible=h.spot.visible=true;
+  msg('EVAC HELICOPTER INBOUND',2600);radioSay("…bird is ten seconds out. Get to the plaza pad. Do not stop for anything…",4800);
+}
+function updHeli(dt){
+  let nearest=null,nd=1e9;
+  const h=AMBH;
+  if(h.active){
+    h.t+=dt;const x=h.start[0]+h.dir[0]*h.spd*h.t,z=h.start[1]+h.dir[1]*h.spd*h.t,y=terrainY(x,z)+h.alt+Math.sin(h.t*1.3)*1.5;
+    h.g.position.set(x,y,z);h.g.rotation.y=Math.atan2(h.dir[0],h.dir[1]);h.rotor.rotation.y+=dt*40;
+    const sd=[-h.dir[1],h.dir[0]],sw=Math.sin(h.t*.9)*28,tx=x+h.dir[0]*26+sd[0]*sw,tz=z+h.dir[1]*26+sd[1]*sw,ty=terrainY(tx,tz);
+    h.beam.position.set(x,y-.8,z);h.beam.lookAt(tx,ty,tz);h.beam.scale.set(1,1,Math.hypot(tx-x,ty-(y-.8),tz-z));h.spot.position.set(tx,ty+.15,tz);
+    if(h.drop&&!h.dropped&&h.t>=h.dropAt){h.dropped=true;spawnPara(x,z)}
+    if(h.t>h.dur){h.active=false;h.g.visible=h.beam.visible=h.spot.visible=false}
+    const d=Math.hypot(x-P.x,z-P.z);if(d<nd){nd=d;nearest=[x,z]}
+  }
+  const e=EVH;
+  if(e.st>0){
+    e.t+=dt;const s=Math.min(1,e.t/16),k=s*s*(3-2*s),gy=terrainY(OBJ.lx,OBJ.lz),x=e.from[0]+(OBJ.lx-e.from[0])*k,z=e.from[1]+(OBJ.lz-e.from[1])*k,y=gy+3.2+(70)*(1-k);
+    e.g.position.set(x,y,z);e.g.rotation.y=Math.atan2(OBJ.lx-e.from[0],OBJ.lz-e.from[1]);e.rotor.rotation.y+=dt*(s<1?40:14);
+    e.beam.position.set(x,y-.8,z);e.beam.lookAt(x,terrainY(x,z),z+.01);e.beam.scale.set(1,1,Math.max(1,y-terrainY(x,z)));e.spot.position.set(x,terrainY(x,z)+.15,z);
+    if(s>=1&&e.st===1){e.st=2;msg('GET TO THE HELICOPTER',2400)}
+    const d=Math.hypot(x-P.x,z-P.z);if(d<nd){nd=d;nearest=[x,z]}
+  }
+  for(let i=PAR.length-1;i>=0;i--){ /* crates floating down under parachutes */
+    const p=PAR[i];p.m.position.y-=3.2*dt;p.m.position.x+=windV*.8*dt;const g=terrainY(p.x,p.z);
+    if(p.m.position.y<=g+.1){scene.remove(p.m);PAR.splice(i,1);spawnPickup(p.x+.6,p.z,'ammo');PK[PK.length-1].life=90;spawnPickup(p.x-.6,p.z,'med');PK[PK.length-1].life=90;
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:AP.soft,color:0xff3020,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));sp.position.set(p.x,g+2,p.z);scene.add(sp);FLARES.push({sp,t:0});msg('SUPPLY DROP LANDED',1800)}
+  }
+  for(let i=FLARES.length-1;i>=0;i--){const f=FLARES[i];f.t+=dt;f.sp.scale.setScalar(4+1.4*Math.sin(f.t*9));f.sp.material.opacity=Math.min(1,(85-f.t)/10);if(f.t>85){scene.remove(f.sp);FLARES.splice(i,1)}}
+  if(HA&&AC&&AC.state==='running'){
+    const now=AC.currentTime;
+    if(nearest){const d=Math.max(1,nd);HA.g.gain.setTargetAtTime(Math.max(0,1-d/300)*.55,now,.2);if(HA.p)HA.p.pan.setTargetAtTime(Math.max(-1,Math.min(1,((nearest[0]-P.x)*Math.cos(yaw)-(nearest[1]-P.z)*Math.sin(yaw))/d)),now,.1);HA.f.frequency.setTargetAtTime(160+200*Math.max(0,1-d/300),now,.2)}
+    else HA.g.gain.setTargetAtTime(0,now,.3);
+  }
+}
+function updEvents(dt,t){
+  if(!running||!AMBH)return;
+  evt.boom-=dt;if(evt.boom<=0){distantBoom();evt.boom=R(40,90)}
+  evt.siren-=dt;if(evt.siren<=0&&wave>=1){startSiren();evt.siren=R(110,200)}
+  evt.radio-=dt;if(evt.radio<=0&&!(OBJ&&OBJ.won)){radioSay(RADIO[radioI++%RADIO.length],5200);evt.radio=R(70,120)}
+  evt.heli-=dt;if(evt.heli<=0&&wave>=2&&!AMBH.active&&EVH.st===0){spawnHeli(Math.random()<.55);evt.heli=R(150,240)}
+  if(FLSH.visible){FLSH.userData.t+=dt;const k=FLSH.userData.t/.9;if(k>=1)FLSH.visible=false;else{FLSH.material.opacity=1-k;FLSH.scale.setScalar(FLSH.userData.sc*(1+k*.6))}}
+  updHeli(dt);
+}
+/* ================= OBJECTIVE: fuel the generator, hold out while it powers up, light the wheel, call the evac ================= */
+function poster(a,b,x,y,z,ry){
+  const cv=document.createElement('canvas');cv.width=192;cv.height=240;const g=cv.getContext('2d');
+  g.fillStyle='#cdbf9c';g.fillRect(0,0,192,240);g.strokeStyle='#5a4a30';g.lineWidth=4;g.strokeRect(6,6,180,228);g.textAlign='center';g.fillStyle='#3a1a14';g.font='38px DotGothic16,sans-serif';g.fillText(a,96,70);
+  g.font='15px monospace';g.fillStyle='#2a2420';b.split('|').forEach((ln,i)=>g.fillText(ln,96,120+i*24));
+  const m=new THREE.Mesh(new THREE.PlaneGeometry(1.6,2),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv),color:0xbbbbbb}));m.position.set(x,y,z);m.rotation.set(0,ry,R(-.06,.06));scene.add(m);
+}
+function buildObjective(){
+  OBJ={phase:0,fuel:0,power:false,pP:0,gx:-10,gz:-68.2,sx:-10,sz:-72,lx:20,lz:-6,genOn:false,hT:0,nT:0,evT:0,won:false,tapes:0,cans:[],tp:[],ui:0,intro:0,lamp:0,rt:9};
+  const vc=new THREE.MeshLambertMaterial({color:0xffffff,vertexColors:true,emissive:0x0c0a08}),O=OBJ;
+  const shed=mergeColored([G(UB,0x2c3a3e,0,1.6,0,6,3.2,4),G(UB,0x1a2428,0,3.35,0,6.4,.3,4.4),G(UB,0x0a0a0c,0,1.2,2.02,2.6,2.4,.06),G(UB,0xc8861e,0,.8,3.9,2.4,1.6,1.4),G(UB,0x222222,0,.8,4.62,2,1,.04),G(UC,0x555555,1.4,1.9,3.5,.12,1.6,.12),G(UB,0x7a2a24,-2.2,.55,3.8,.9,1.1,.9)]);
+  const sm=new THREE.Mesh(shed,vc);sm.position.set(O.sx,0,O.sz);scene.add(sm);
+  COLB.push([O.sx-3.2,O.sx+3.2,O.sz-2.2,O.sz+2.2],[O.sx-1.3,O.sx+1.3,O.sz+3.2,O.sz+4.6]);aoAdd(O.sx,O.sz+1.5,5,4);
+  const gs=new THREE.Mesh(new THREE.PlaneGeometry(4.4,1.6),neon('発電機','GENERATOR','#ffb030'));gs.position.set(O.sx,4.6,O.sz+2.3);scene.add(gs);
+  O.sm=[];for(let i=0;i<3;i++){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:AP.soft,color:0x2a2624,transparent:true,depthWrite:false,opacity:0}));sp.visible=false;scene.add(sp);O.sm.push({sp,a:i*.8})}
+  const ring=new THREE.Mesh(new THREE.RingGeometry(.92,1,40).rotateX(-PI/2),new THREE.MeshBasicMaterial({color:0xff5030,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:2}));ring.visible=false;ring.position.set(O.sx,.12,O.sz+3.9);scene.add(ring);O.nring=ring;
+  const safe=new THREE.Mesh(new THREE.RingGeometry(26,27.4,56).rotateX(-PI/2),new THREE.MeshBasicMaterial({color:0xffd9a0,transparent:true,opacity:.35,depthWrite:false,blending:THREE.AdditiveBlending,side:2}));safe.visible=false;safe.position.set(0,.09,-5);scene.add(safe);O.safe=safe;
+  const can=mergeColored([G(UB,0xc02020,0,.3,0,.4,.6,.2),G(UB,0xc02020,0,.62,0,.38,.04,.18),G(UB,0x222222,0,.7,0,.2,.12,.05),G(UC,0xe8c040,.12,.66,0,.04,.08,.04)]);
+  const tape=mergeColored([G(UB,0x1a1a1e,0,.05,0,.5,.08,.32),G(UB,0xe8e0d0,0,.095,0,.34,.01,.18),G(UC,0x888888,-.1,.1,0,.05,.02,.05),G(UC,0x888888,.1,.1,0,.05,.02,.05)]);
+  const beacon=(x,z,col,w,h)=>{const b=new THREE.Sprite(new THREE.SpriteMaterial({map:AP.soft,color:col,transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending}));b.scale.set(w,h,1);b.position.set(x,h/2,z);scene.add(b);return b};
+  [[-42,50],[66,34],[28,112]].forEach(p=>{const m=new THREE.Mesh(can,vc);m.scale.setScalar(1.6);m.position.set(p[0],terrainY(p[0],p[1]),p[1]);scene.add(m);O.cans.push({m,b:beacon(p[0],p[1],0xff3a2a,1.6,10),x:p[0],z:p[1],got:false,y:m.position.y})});
+  [[-100,24],[22,114],[-14,-50],[58,22]].forEach(p=>{const m=new THREE.Mesh(tape,vc);m.scale.setScalar(1.8);m.position.set(p[0],terrainY(p[0],p[1])+.4,p[1]);scene.add(m);O.tp.push({m,b:beacon(p[0],p[1],0x40e0ff,1.1,6),x:p[0],z:p[1],got:false,y:m.position.y})});
+  poster('閉園','PARK CLOSED|SINCE 1998|NO ADMITTANCE',-16,1.9,84.45,PI);poster('行方不明','MISSING|STAFF No. 14|KEIKO TANAKA',16,1.9,84.45,PI);
+  poster('隔離','QUARANTINE|DO NOT PASS|SEE CHECKPOINT',-2.8,2.6,64.15,0);poster('高電圧','HIGH VOLTAGE|GENERATOR|DANGER',O.sx+3.1,2,O.sz+2.1,0);
+  poster('立入禁止','KEEP OUT|HAUNTED HOUSE|CLOSED',-109.9,2.6,18,PI/2);poster('関係者','STAFF ONLY|UPGRADES|ASK AT COUNTER',29.2,2.2,78.94,PI);
+}
+function startGenerator(){
+  const O=OBJ;if(O.phase!==1)return;O.phase=2;O.genOn=true;O.pP=0;O.hT=1;O.nT=0;
+  msg('THE GENERATOR ROARS — HOLD THE LINE',2800);radioSay("…they can hear that engine across the whole valley. Hold on until the lights come up…",5200);shake=Math.max(shake,.5);
+}
+function powerOn(){
+  const O=OBJ,c=new THREE.Color();O.power=true;
+  for(let i=0;i<24;i++){c.setHex(0xffe3a0);BULBS.setColorAt(i,c);c.setHSL(i/24,.8,.6);WLAMP.setColorAt(i,c)}
+  WLAMP.instanceColor.needsUpdate=true;BULBS.instanceColor.needsUpdate=true;O.safe.visible=true;
+  msg('POWER RESTORED — THE LIGHT HOLDS THEM BACK',3000);radioSay("…the wheel is lit! I can see it from the ridge. Stay in the light, they slow down inside it. Now get to the staff office and call us in…",7000);
+}
+function callEvac(){
+  const O=OBJ;if(O.phase!==3)return;O.phase=4;O.evT=120;msg('EVACUATION CALLED — HOLD OUT',2600);
+  radioSay("…copy, evac is inbound. Two minutes. Keep the plaza clear and keep them off the pad…",5200);
+}
+function winGame(){
+  const O=OBJ;if(O.won)return;paused=true;firing=false;mX=mY=0;
+  $('winst').innerHTML=`KILLS ${kills}<br>SCORE ${score}<br>TAPES ${O.tapes}/4<br>WAVE ${wave}`;$('win').style.display='flex';
+}
+function updObj(dt,t){
+  const O=OBJ;if(!O)return;
+  if(!O.intro&&running){O.intro=1;msg('OBJECTIVE: RESTORE THE POWER',2600);setTimeout(()=>radioSay("…Yumegaoka control to anyone listening. The generator behind the Ferris wheel needs fuel. Three cans are hidden in the park…",6000),3500)}
+  if(O.phase===0)for(const c of O.cans){
+    if(c.got)continue;c.m.rotation.y+=dt;c.m.position.y=c.y+.12*Math.sin(t*.004);
+    if(Math.hypot(P.x-c.x,P.z-c.z)<1.8){c.got=true;c.m.visible=c.b.visible=false;O.fuel++;sfxPickup('ammo');msg('FUEL '+O.fuel+'/3',1200);
+      if(O.fuel>=3){O.phase=1;msg('TAKE THE FUEL TO THE GENERATOR',2200);radioSay("…that's all three cans. The generator is behind the Ferris wheel. Start it and hold out…",5200)}}
+  }
+  for(let i=0;i<O.tp.length;i++){
+    const q=O.tp[i];if(q.got)continue;q.m.rotation.y+=dt*1.5;q.m.position.y=q.y+.1*Math.sin(t*.004+i);
+    if(Math.hypot(P.x-q.x,P.z-q.z)<1.7){q.got=true;q.m.visible=q.b.visible=false;O.tapes++;score+=300;upd();sfxPickup('med');radioSay('TAPE '+(i+1)+'/4 — '+TAPES[i],7000);if(O.tapes===4){score+=1000;upd();setTimeout(()=>msg('ALL TAPES FOUND +1000',1800),600)}}
+  }
+  if(O.phase===2){
+    O.pP=Math.min(100,O.pP+dt*100/60);O.hT-=dt;O.nT-=dt;
+    if(O.hT<=0){O.hT=2.2;if(enemies.filter(e=>e.alive).length<16)spawn(O.sx,O.sz+10)} /* the engine draws the dead */
+    if(O.nT<=0){O.nT=2.5;O.rt=0;O.nring.visible=true}
+    if(O.pP>=100){O.phase=3;powerOn()}
+  }
+  if(O.genOn){
+    O.sm.forEach((m,i)=>{m.a=(m.a+dt*.35)%1;m.sp.visible=true;m.sp.position.set(O.sx+1.4+m.a*3,2.7+m.a*7,O.sz+3.5);m.sp.scale.setScalar(1.5+m.a*5);m.sp.material.opacity=.4*Math.sin(m.a*PI)});
+    if(O.rt<1.6){O.rt+=dt;O.nring.scale.setScalar(1+O.rt*38);O.nring.material.opacity=.6*(1-O.rt/1.6)}else O.nring.visible=false;
+  }
+  if(O.power){
+    O.lamp-=dt;if(O.lamp<=0){O.lamp=.15;const c=new THREE.Color();for(let i=0;i<24;i++){c.setHSL((i/24+t*.00005)%1,.8,.6);WLAMP.setColorAt(i,c)}WLAMP.instanceColor.needsUpdate=true}
+    O.safe.material.opacity=.3+.12*Math.sin(t*.003);
+    if(hp>0&&Math.hypot(P.x,P.z+5)<27&&hp<HPMAX){hp=Math.min(HPMAX,hp+dt*1.2);$('hp').style.width=(hp/HPMAX*100)+'%'} /* the light heals you */
+  }
+  if(O.phase===4){O.evT-=dt;if(O.evT<=0&&EVH.st===0)launchEvac();if(EVH.st===2&&!O.won&&Math.hypot(P.x-O.lx,P.z-O.lz)<9)winGame()}
+  if(GA&&AC&&AC.state==='running'){const d=Math.hypot(P.x-O.sx,P.z-O.sz),now=AC.currentTime;GA.g.gain.setTargetAtTime(O.genOn?Math.max(0,1-d/100)*.16:0,now,.3);if(GA.p)GA.p.pan.setTargetAtTime(Math.max(-1,Math.min(1,((O.sx-P.x)*Math.cos(yaw)-(O.sz-P.z)*Math.sin(yaw))/(d||1))),now,.2)}
+  O.ui-=dt;
+  if(O.ui<=0){
+    O.ui=.2;let txt='',tx=null,tz=null;
+    if(O.won){txt='ENDLESS — HOW LONG CAN YOU HOLD?'}
+    else if(O.phase===0){txt='FIND FUEL CANS  '+O.fuel+'/3';let best=1e9;for(const c of O.cans)if(!c.got){const d=Math.hypot(P.x-c.x,P.z-c.z);if(d<best){best=d;tx=c.x;tz=c.z}}}
+    else if(O.phase===1){txt='TAKE THE FUEL TO THE GENERATOR';tx=O.gx;tz=O.gz}
+    else if(O.phase===2){txt='DEFEND THE GENERATOR  '+Math.floor(O.pP)+'%';tx=O.gx;tz=O.gz}
+    else if(O.phase===3){txt='CALL FOR EVAC AT THE STAFF OFFICE RADIO';tx=36.4;tz=76.4}
+    else if(EVH.st===2){txt='GET TO THE HELICOPTER';tx=O.lx;tz=O.lz}
+    else if(EVH.st===1){txt='EVAC HELICOPTER INBOUND';tx=O.lx;tz=O.lz}
+    else{const m=Math.max(0,Math.ceil(O.evT)),s2=m%60;txt='HOLD OUT — EVAC IN '+Math.floor(m/60)+':'+(s2<10?'0':'')+s2;tx=O.lx;tz=O.lz}
+    const ar=$('arrow');
+    if(tx!==null){const dx=tx-P.x,dz=tz-P.z,fw=-dx*Math.sin(yaw)-dz*Math.cos(yaw),rt=dx*Math.cos(yaw)-dz*Math.sin(yaw);ar.style.display='block';ar.style.transform='rotate('+Math.atan2(rt,fw)+'rad)';txt+='  ·  '+Math.round(Math.hypot(dx,dz))+' m'}else ar.style.display='none';
+    $('obj').textContent=txt;
+  }
+}
 function updExtras(dt,t){
   const X=XT;if(!X)return;X.fr++;
   if(X.lake&&X.lake.material.map){X.lake.material.map.offset.x+=dt*.004;X.lake.material.map.offset.y+=dt*.002}
-  for(const m of X.mist){m.position.x+=m.userData.v*dt;if(m.position.x>135)m.position.x=-135}
+  for(const m of X.mist){m.position.x+=m.userData.v*dt*(.6+windV*2.4);if(m.position.x>135)m.position.x=-135}
   X.boats.forEach((b,i)=>{b.rotation.y+=dt*.04;b.position.y=.05+Math.sin(t*.001+i*2)*.05});
   for(const sg of X.signs){if(sg.t>0){sg.t-=dt;if(sg.t<=0)sg.m.color.setScalar(1)}else if(Math.random()<.006){sg.m.color.setScalar(R(.25,.6));sg.t=R(.05,.25)}}
   X.win.color.setScalar(Math.min(1,X.win.color.r+dt*1.5));if(Math.random()<.03)X.win.color.setScalar(R(.45,.8));
@@ -790,6 +1049,7 @@ function updFlash(dt){
 }
 /* ================= AMBIENCE: coaster rumble + clacks, heartbeat at low health ================= */
 function updAmbience(dt){
+  if(AC&&AC.state==='running'&&RA)RA.g.gain.setTargetAtTime(rain*(.03+.03*windV),AC.currentTime,.5);
   if(RT&&coaster&&AC&&AC.state==='running'){
     const c=coaster.cars[0].position,dx=c.x-P.x,dz=c.z-P.z,d=Math.hypot(dx,dz),t=AC.currentTime;
     RT.g.gain.setTargetAtTime(Math.max(0,1-d/90)*(.015+.06*coaster.v/20),t,.15);RT.f.frequency.setTargetAtTime(110+coaster.v*16,t,.2);
@@ -962,14 +1222,15 @@ function animZ(e,dt,d){
   P.jaw.rotation.x=.25+Math.abs(Math.sin(T*1.1))*(d<5?.7:.35)+(lunge?.4:0);
   if(e.shr>0){P.head.rotation.x=-.9;P.jaw.rotation.x=1.05;P.up.rotation.x=-.25;for(let i=0;i<2;i++){P.au[i].rotation.x=-.6;P.au[i].rotation.z=(i?-1:1)*1.3}} /* screamer rears back and shrieks */
 }
-function spawn(){
+function spawn(cx,cz){
   const r=Math.random();let kind='walker';
   if(wave>=4&&r<.06)kind='brute';else if(wave>=3&&r<.12)kind='stalker';else if(wave>=4&&r<.19)kind='screamer';else if(wave>=2&&r<.34)kind='crawler';else if(wave>=5&&r<.48)kind='runner';
   const vi=kind==='stalker'?6:kind==='screamer'?7:Math.floor(R(0,6));
   const e=zombie(vi,kind);
   if(kind==='stalker'&&!seenStalker){seenStalker=true;msg('DO NOT TAKE YOUR EYES OFF IT',2400)}
-  let x,z,tries=0; /* arrive from the edge of view, anywhere in the wide park */
-  do{const an=R(0,6.3),d=R(75,100);x=P.x+Math.cos(an)*d;z=P.z+Math.sin(an)*d;tries++}while(Math.hypot(x,z)>138&&tries<60);
+  let x,z,tries=0; /* arrive from the edge of view, anywhere in the wide park (or around a point of interest) */
+  const ox=cx===undefined?P.x:cx,oz=cx===undefined?P.z:cz,d0=cx===undefined?75:35,d1=cx===undefined?100:65;
+  do{const an=R(0,6.3),d=R(d0,d1);x=ox+Math.cos(an)*d;z=oz+Math.sin(an)*d;tries++}while(Math.hypot(x,z)>138&&tries<60);
   const hd=Math.hypot(x,z);if(hd>138){x*=138/hd;z*=138/hd}
   e.gy=terrainY(x,z);e.g.position.set(x,e.gy,z);scene.add(e.g);enemies.push(e);
 }
@@ -1112,7 +1373,7 @@ function updEnemies(dt){
     const statue=e.kind==='stalker'&&seen; /* freezes the instant you look at it */
     if(e.kind==='stalker'&&!statue&&d<45){e.bnT-=dt;if(e.bnT<=0){sfxBones(pn,1-d/45);e.bnT=.35}}
     if(e.bCd<=0&&d<9&&!e.crawl&&(-dx*V.x-dz*V.z)/(d*hv)<.2){e.burst=.7;e.bCd=R(6,10);groan(.9,pn)} /* rushes you when your back is turned */
-    if(e.stun>0)e.stun-=dt;else if(!frozen&&!statue&&!(e.shr>0)&&d>e.stopD){const st=e.sp*(.55+.65*Math.max(0,Math.sin(e.ph)))*dt*(e.blind>0?.55:1)*(e.burst>0?2.4:1)*(rage>0&&e.kind!=='stalker'?1.3:1);e.g.position.x+=dx/d*st;e.g.position.z+=dz/d*st} /* shamble with a lurch */
+    if(e.stun>0)e.stun-=dt;else if(!frozen&&!statue&&!(e.shr>0)&&d>e.stopD){const st=e.sp*(.55+.65*Math.max(0,Math.sin(e.ph)))*dt*(e.blind>0?.55:1)*(e.burst>0?2.4:1)*(rage>0&&e.kind!=='stalker'?1.3:1)*(OBJ&&OBJ.power&&Math.hypot(e.g.position.x,e.g.position.z+5)<27?.6:1);e.g.position.x+=dx/d*st;e.g.position.z+=dz/d*st} /* shamble with a lurch */
     collide(e.g.position,e.rad);
     e.g.rotation.y=Math.atan2(dx,dz)+Math.sin(e.ph*.4)*.15;
     if(statue){const P3=e.P;for(let i=0;i<2;i++){P3.au[i].rotation.x=-2.5;P3.au[i].rotation.z=(i?-1:1)*.25;P3.af[i].rotation.x=-.3}P3.head.rotation.x=.3;P3.head.rotation.z=.25;P3.jaw.rotation.x=.9}
@@ -1126,7 +1387,9 @@ function updEnemies(dt){
       if(d2<.64&&d2>1e-6){const d=Math.sqrt(d2),pp=(.8-d)*.5;a.g.position.x+=dx/d*pp;a.g.position.z+=dz/d*pp;b.g.position.x-=dx/d*pp;b.g.position.z-=dz/d*pp}}}
   enemies.splice(0,enemies.length,...enemies.filter(e=>e.alive||e.dead>0));
   spawnT-=dt;
-  if(toSpawn>0&&spawnT<=0&&alive<6){spawn();toSpawn--;spawnT=Math.max(1.8,3.2-wave*.1)}
+  const boost=OBJ&&OBJ.phase===4;
+  if(toSpawn>0&&spawnT<=0&&alive<(boost?10:6)){spawn();toSpawn--;spawnT=Math.max(1.8,3.2-wave*.1)*(boost?.55:1)}
+  else if(boost&&toSpawn===0&&spawnT<=0&&alive<10){spawn();spawnT=2.2} /* the horde thickens while you wait for the evac */
   if(toSpawn===0&&alive===0&&wave>0){gap+=dt;if(gap>5){gap=0;startWave()}}else gap=0;
   gT-=dt;if(gT<=0&&minD<45){groan(1-minD/45,nearPan);gT=R(3,6)}
   scT-=dt;if(scT<=0&&runD<55){scream(1-runD/55,runPan);scT=R(3,6)}
@@ -1285,11 +1548,19 @@ function initAudio(){
   wet.connect(dl);dl.connect(lp);lp.connect(fb);fb.connect(dl);lp.connect(mg);
   nbuf=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate);const d=nbuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
   const ws=AC.createBufferSource();ws.buffer=nbuf;ws.loop=true;const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=480;bp.Q.value=.6;
-  const wg=AC.createGain();wg.gain.value=.03;ws.connect(bp);bp.connect(wg);wg.connect(mg);ws.start();
+  const wg=AC.createGain();WG=wg;wg.gain.value=.03;ws.connect(bp);bp.connect(wg);wg.connect(mg);ws.start();
   const rs=AC.createBufferSource();rs.buffer=nbuf;rs.loop=true;const rf=AC.createBiquadFilter();rf.type='bandpass';rf.frequency.value=160;rf.Q.value=.8;const rg=AC.createGain();rg.gain.value=0;
   const rp=AC.createStereoPanner?AC.createStereoPanner():null;rs.connect(rf);rf.connect(rg);if(rp){rg.connect(rp);rp.connect(mg)}else rg.connect(mg);rs.start();RT={g:rg,f:rf,p:rp}; /* distant coaster rumble */
+  const pn2=()=>AC.createStereoPanner?AC.createStereoPanner():null,wire=(n,p)=>{if(p){n.connect(p);p.connect(mg)}else n.connect(mg)};
+  const rs2=AC.createBufferSource();rs2.buffer=nbuf;rs2.loop=true;const rhp=AC.createBiquadFilter();rhp.type='highpass';rhp.frequency.value=2200;const rag=AC.createGain();rag.gain.value=0;rs2.connect(rhp);rhp.connect(rag);rag.connect(mg);rs2.start();RA={g:rag}; /* rain */
+  const hs=AC.createBufferSource();hs.buffer=nbuf;hs.loop=true;const hlp=AC.createBiquadFilter();hlp.type='lowpass';hlp.frequency.value=220;const ham=AC.createGain();ham.gain.value=.5;
+  const hlf=AC.createOscillator();hlf.frequency.value=13;const hlfg=AC.createGain();hlfg.gain.value=.5;hlf.connect(hlfg);hlfg.connect(ham.gain);
+  const hv=AC.createGain();hv.gain.value=0;const hpn=pn2();hs.connect(hlp);hlp.connect(ham);ham.connect(hv);wire(hv,hpn);hs.start();hlf.start();HA={g:hv,p:hpn,f:hlp}; /* helicopter rotor */
+  const gs=AC.createBufferSource();gs.buffer=nbuf;gs.loop=true;const glp=AC.createBiquadFilter();glp.type='lowpass';glp.frequency.value=150;const gg=AC.createGain();gg.gain.value=0;
+  const go=AC.createOscillator();go.type='sawtooth';go.frequency.value=48;const gol=AC.createBiquadFilter();gol.type='lowpass';gol.frequency.value=220;const gp=pn2();
+  gs.connect(glp);glp.connect(gg);go.connect(gol);gol.connect(gg);wire(gg,gp);gs.start();go.start();GA={g:gg,p:gp}; /* generator engine */
   setInterval(()=>{if(AC.state==='running'&&running){const d=Math.hypot(P.x,P.z+58);if(d<80&&Math.random()<.22)creak(1.6*(1-d/80),(-P.x*Math.cos(yaw)+(-58-P.z)*(-Math.sin(yaw)))/(d||1))}},1000); /* the Ferris wheel groans */
-  setInterval(()=>wg.gain.setTargetAtTime(.012+Math.random()*.04,AC.currentTime,1.2),2500);
+  setInterval(()=>wg.gain.setTargetAtTime(.012+.07*windV+Math.random()*.02,AC.currentTime,1.2),2500);
   setInterval(()=>{if(AC.state==='running'&&Math.random()<.1)creak()},1000);
   nextB=AC.currentTime+.4;setInterval(sched,120);
   ['touchend','click','pointerup','keydown'].forEach(e=>addEventListener(e,()=>{if(AC.state!=='running'&&!document.hidden)AC.resume()},{passive:true}));
@@ -1387,7 +1658,7 @@ function sfxShot(){
 function addLook(dx,dy){ /* finer, acceleration-free aiming when scoped */
   const zf=cam.fov/70,ac=1+Math.min(.7,Math.hypot(dx,dy)*.035);const sn=SENS[si];pY-=dx*.0046*zf*ac*sn;pP-=dy*.0036*zf*ac*sn;scopeIdle=0} /* same look maths as Nagaloka */
 function setupInput(){
-  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyR')reload();if(e.code==='KeyC')toggleScope();if(e.code==='KeyQ')hold=true;if(e.code==='KeyZ')cycleZoom();if(e.code==='KeyF')toggleFlash();if(e.code==='KeyP')toggleFX();if(e.code==='KeyE'&&offNear)openUpg();if(e.code==='Space')jump();if(e.code==='KeyX'||e.code==='ControlLeft')toggleCrouch();if(e.code==='KeyM')mute()});
+  addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyR')reload();if(e.code==='KeyC')toggleScope();if(e.code==='KeyQ')hold=true;if(e.code==='KeyZ')cycleZoom();if(e.code==='KeyF')toggleFlash();if(e.code==='KeyP')toggleFX();if(e.code==='KeyE')promptAction();if(e.code==='Space')jump();if(e.code==='KeyX'||e.code==='ControlLeft')toggleCrouch();if(e.code==='KeyM')mute()});
   addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='KeyQ')hold=false});
   addEventListener('blur',()=>{for(const k in keys)keys[k]=false;mX=mY=0;firing=false;hold=false}); /* nothing gets stuck if the page loses focus */
   let md=false,lx=0,ly=0;
@@ -1426,7 +1697,7 @@ function setupInput(){
   $('crch').addEventListener('touchstart',e=>{e.preventDefault();toggleCrouch()},o);
   $('sens').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();si=(si+1)%SENS.length;$('sens').textContent='SENS '+SENS[si].toFixed(1)});
   addEventListener('wheel',e=>{if(scoped)cycleZoom()},{passive:true});
-  $('prompt').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();openUpg()});$('upclose').addEventListener('click',closeUpg);
+  $('prompt').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();promptAction()});$('winkeep').addEventListener('click',()=>{$('win').style.display='none';paused=false;OBJ.won=true});$('winre').addEventListener('click',()=>location.reload());$('upclose').addEventListener('click',closeUpg);
   $('fxb').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();toggleFX()});
   $('mute').addEventListener('pointerdown',e=>{e.stopPropagation();e.preventDefault();mute()});
 }
@@ -1438,7 +1709,7 @@ function loop(){
   if(paused){clock.getDelta();fxRender(performance.now());return} /* shopping pauses the game */
   const raw=clock.getDelta(),dt=Math.min(.033,raw),t=performance.now();
   cd=Math.max(0,cd-dt);rec*=.84;
-  updReload(dt);WX=Math.sin(t*.00011)*2.4;WZ=Math.cos(t*.00017)*1.8;
+  updReload(dt);updWeather(dt,t);updEvents(dt,t);updObj(dt,t);
   if(firing)shoot();
   if(!dead){updPlayer(dt,t);updEnemies(dt)}
   updBullets(dt);updParts(dt);updSplash(dt);
